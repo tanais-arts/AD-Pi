@@ -50,6 +50,7 @@ GENERATED/
 VIDEOS/SYNC/
 
 # Sensitive
+/local_admin.secret
 *.hashes
 passlist.hashes
 master_code.hash
