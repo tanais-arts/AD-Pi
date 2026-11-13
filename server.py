@@ -2380,13 +2380,13 @@ if __name__ == '__main__':
         cert_path = Path(args.ssl_cert)
         key_path = Path(args.ssl_key)
         if cert_path.exists() and key_path.exists():
-            print(f'Rythmo Sync Server — https://localhost:{args.port} (TLS enabled)')
+            print(f'Rythmo Sync Server - https://localhost:{args.port} (TLS enabled)')
             ssl_ctx = (str(cert_path.resolve()), str(key_path.resolve()))
             app.run(host=args.host, port=args.port, debug=False, threaded=True, ssl_context=ssl_ctx)
         else:
             print('TLS certificate or key not found; starting without TLS')
-            print(f'Rythmo Sync Server — http://localhost:{args.port}')
+            print(f'Rythmo Sync Server - http://localhost:{args.port}')
             app.run(host=args.host, port=args.port, debug=False, threaded=True)
     else:
-        print(f'Rythmo Sync Server — http://localhost:{args.port}')
+        print(f'Rythmo Sync Server - http://localhost:{args.port}')
         app.run(host=args.host, port=args.port, debug=False, threaded=True)

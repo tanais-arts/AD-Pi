@@ -2,10 +2,11 @@
 Version=1.0
 Type=Application
 Name=Ateliers Doublage Administration
-Comment=Gestion des vidéos synchronisées
+Comment=Gestion des videos synchronisees
 Icon=Icone
-Exec=bash -c 'cd "$(dirname "%k")" && ./launch_app.sh'
-Terminal=true
+Exec=bash -c 'cd /home/tanaismusic/AD-Pi400 && bash launch_app.sh'
+Terminal=false
 Categories=AudioVideo;Utility;
 X-GNOME-Autostart-enabled=false
 StartupNotify=true
+Path=/home/tanaismusic/AD-Pi400

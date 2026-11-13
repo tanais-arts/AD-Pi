@@ -8,7 +8,7 @@
 #
 # Usage: ./launch_app.sh [--help]
 
-set -e
+set +e  # Don't exit on error
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -73,25 +73,23 @@ cleanup() {
     if [ -f "$PIDFILE" ]; then
         PID=$(cat "$PIDFILE")
         if kill -0 "$PID" 2>/dev/null; then
-            echo -e "${YELLOW}⏸️  Arrêt du serveur (PID $PID)...${NC}"
-            kill "$PID"
-            sleep 2
+            echo -e "${YELLOW}Arrêt du serveur (PID $PID)...${NC}"
+            kill "$PID" 2>/dev/null
+            sleep 1
         fi
         rm -f "$PIDFILE"
     fi
-    echo -e "${BLUE}👋 Au revoir !${NC}"
 }
 
-# Trap pour arrêt propre
-trap cleanup EXIT INT TERM
+# Note: trap removed - server should continue running in background
 
 # Vérifier si un serveur tourne déjà
 if [ -f "$PIDFILE" ]; then
     OLD_PID=$(cat "$PIDFILE")
     if kill -0 "$OLD_PID" 2>/dev/null; then
-        echo -e "${YELLOW}⚠️  Un serveur tourne déjà (PID $OLD_PID)${NC}"
-        echo "Arrêt du serveur précédent..."
-        kill "$OLD_PID"
+        echo -e "${YELLOW}Un serveur tourne deja (PID $OLD_PID)${NC}"
+        echo "Arrêt du serveur precedent..."
+        kill "$OLD_PID" 2>/dev/null
         sleep 1
     fi
 fi
@@ -183,14 +181,15 @@ fi
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
-echo "📝 Interface disponible : http://localhost:$PORT"
+echo "Interface disponible : http://localhost:$PORT"
 echo ""
-echo "⚙️  Pour arrêter : Fermerez le navigateur ou Ctrl+C ici"
+echo "Pour arreter : Fermez le navigateur ou Ctrl+C ici"
 echo ""
-echo "📄 Logs : $LOGFILE"
+echo "Logs : $LOGFILE"
 echo ""
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
 
-# Garder le processus lanceur actif
-wait $SERVER_PID
+# Launch complete - server runs in background
+# Script can safely exit now
+exit 0
