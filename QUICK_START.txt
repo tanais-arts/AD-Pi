@@ -1,0 +1,24 @@
+╔════════════════════════════════════════════════════════════════════╗
+║             INSTALLATION EXPRESS SUR PI 400 (5 MIN)                ║
+╚════════════════════════════════════════════════════════════════════╝
+
+Sur votre Pi 400 :
+
+$ ssh pi@raspberrypi.local
+$ cd ~ && git clone https://github.com/tanais-arts/AD-Pi.git AD-Pi400 && cd AD-Pi400
+$ chmod +x install.sh && ./install.sh
+
+(Appuyer sur 'y', puis attendre 45-60 min que ça compile)
+
+Puis tester :
+
+$ source venv/bin/activate
+$ python3 generate_sync.py VIDEOS/video.mp4 SCRIPTS/script.xlsx
+
+Résultat : ~/AD-Pi400/VIDEOS/SYNC/video_Sync.mp4
+
+C'est tout ! 🎬
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Pour plus de détails, voir INSTALL_ON_PI.md
