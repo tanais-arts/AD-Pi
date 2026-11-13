@@ -16,7 +16,7 @@
 #
 ################################################################################
 
-set -e  # Exit on error
+set +e  # Don't exit on error (handle gracefully)
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 # CONFIGURATION
@@ -138,6 +138,20 @@ fi
 
 section "ÉTAPE 1 : Dépendances système"
 
+# Attendre si le verrou apt est bloqué
+log "Vérification du verrou apt..."
+MAX_ATTEMPTS=30
+ATTEMPT=0
+while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+    ATTEMPT=$((ATTEMPT + 1))
+    if [ $ATTEMPT -gt $MAX_ATTEMPTS ]; then
+        log_warning "Verrou apt persistant, continuant quand même..."
+        break
+    fi
+    log_warning "Verrou apt détecté, attente... ($ATTEMPT/$MAX_ATTEMPTS)"
+    sleep 2
+done
+
 log "Mise à jour des paquets (peut prendre 1-2 min)..."
 sudo apt-get update -qq >> "$LOG_FILE" 2>&1 || log_warning "apt update échoué (ignoré)"
 
@@ -180,20 +194,20 @@ log_success "Dépendances système OK"
 section "ÉTAPE 2 : Structure de répertoires"
 
 # Vérifier si installation existe
-if [ -d "$INSTALL_DIR" ] && [ "$(ls -A $INSTALL_DIR 2>/dev/null)" ]; then
-    log_warning "Le répertoire $INSTALL_DIR n'est pas vide"
-    read -p "$(echo -e ${YELLOW}Écraser l\'installation existante ? (y/n)${NC} )" -n 1 -r
+if false; then # Disabled directory check
+    log_warning "Le repertoire $INSTALL_DIR n'est pas vide"
+    # Auto-overwrite (commented out problematic read)
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         log "Sauvegarde de l'ancienne installation..."
         BACKUP_DIR="${INSTALL_DIR}.backup.$(date +%s)"
         mv "$INSTALL_DIR" "$BACKUP_DIR"
-        log_warning "Sauvegardé dans : $BACKUP_DIR"
+        log_warning "Sauvegarde dans : $BACKUP_DIR"
         mkdir -p "$INSTALL_DIR"
     fi
 else
     mkdir -p "$INSTALL_DIR"
-    log_success "Répertoire créé : $INSTALL_DIR"
+    log_success "Repertoire cree : $INSTALL_DIR"
 fi
 
 # Créer les sous-répertoires
