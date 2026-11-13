@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin — Rythmo</title>
+<style>
+  body{font-family:system-ui, -apple-system, sans-serif;background:#0f1724;color:#e6eef8;padding:24px}
+  .card{background:#071029;border-radius:10px;padding:18px;max-width:980px;margin:10px auto}
+  h1{color:#7dd3fc;margin-bottom:8px}
+  .row{display:flex;justify-content:space-between;gap:12px;align-items:center;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.03)}
+  .col{flex:1}
+  /* unified button styles */
+  button, a.btn{background:#1e293b;color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:14px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 12px;line-height:36px;text-decoration:none}
+  .btn-danger{background:#be123c;color:#fff}
+  a.btn{background:#10b981;color:#042}
+  .row > div > .btn, .row > div > button{height:36px}
+  /* modal preview */
+  .modal-overlay{position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.6);display:none;align-items:center;justify-content:center;z-index:2000}
+  .modal-card{background:#071029;padding:12px;border-radius:10px;width:75%;max-width:1200px}
+  .modal-card video{width:100%;height:auto;border-radius:6px;background:#000}
+  #repartition-table{table-layout:auto}
+  #repartition-table th,#repartition-table td{border:1px solid rgba(255,255,255,.08);padding:0;text-align:left}
+  #repartition-table th{background:#0b1220;color:#7dd3fc;padding:6px 8px;white-space:nowrap;position:sticky;top:0}
+  #repartition-table th:first-child,#repartition-table td:first-child{min-width:260px}
+  #repartition-table td input{width:100%;min-width:100%;box-sizing:border-box;background:transparent;color:#e6eef8;border:0;padding:6px 8px;font-size:13px;white-space:pre}
+  #repartition-table td input:focus{background:#0b1220;outline:1px solid #7dd3fc}
+  #repartition-table td.row-del{text-align:center;width:36px}
+  #repartition-table td.check-cell{text-align:center;font-size:14px;width:50px}
+  #repartition-table td.check-cell .ok{color:#10b981}
+  #repartition-table td.check-cell .missing{color:#f87171}
+  #repartition-table tr.new-row{background:rgba(16,185,129,.08)}
+  body.embed{padding:8px}
+  body.embed .card{max-width:100%;margin:0}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>Admin — Rythmo</h1>
+
+  <div data-section="sessions">
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h2>Sauvegardes locales</h2>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="local-saves-clear-all" class="btn-danger">Supprimer toutes les sauvegardes locales</button>
+      </div>
+    </div>
+    <div id="local-saves"></div>
+    <h2 style="margin-top:18px">Sessions serveur</h2>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <label><input id="sessions-select-all" type="checkbox"> Tout sélectionner</label>
+      <button id="sessions-delete-selected" class="btn-danger">Supprimer sélection</button>
+    </div>
+    <div id="sessions"></div>
+    <h2 style="margin-top:18px">Fichiers générés</h2>
+    <div id="generated"></div>
+  </div>
+  <div data-section="repartition">
+    <h2 style="margin-top:18px">Liste de répartition</h2>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <button id="edit-repartition" class="btn">Éditer repartition.csv</button>
+      <div id="upload-repartition-status" style="color:#9ca3af;margin-left:8px"></div>
+    </div>
+  </div>
+  <div data-section="sessions">
+    <h2 style="margin-top:18px">Mettre à jour la passlist (fichier .txt)</h2>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <input type="file" id="passlist-file" accept=".txt,.rtf">
+      <button id="upload-passlist" class="btn">Uploader la passlist</button>
+      <div id="upload-passlist-status" style="color:#9ca3af;margin-left:8px"></div>
+      <button id="revoke-passlist" class="btn-danger" style="margin-left:8px">Révoquer les mots de passe</button>
+    </div>
+    <div id="upload-passlist-result" style="margin-top:8px;color:#cbd5e1;font-size:.95rem;max-width:980px;overflow:auto;white-space:pre-wrap"></div>
+  </div>
+  <!-- modal preview (75% width) -->
+  <div id="generated-modal" class="modal-overlay"><div class="modal-card"><div style="text-align:right"><button id="generated-modal-close">Fermer</button></div><video id="admin-modal-video" controls controlsList="nodownload" preload="metadata" playsinline></video></div></div>
+  <!-- repartition edit modal -->
+  <div id="repartition-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <strong>Éditer repartition.csv</strong>
+        <div style="display:flex;gap:8px">
+          <button id="repartition-scan-new" class="btn">Chercher de nouveaux extraits</button>
+          <button id="repartition-add-row" class="btn">+ Ligne</button>
+          <button id="repartition-modal-save" class="btn">Mettre à jour</button>
+          <button id="repartition-modal-close">Fermer</button>
+        </div>
+      </div>
+      <div style="max-height:70vh;overflow:auto;border:1px solid rgba(255,255,255,.1);border-radius:6px">
+        <table id="repartition-table" style="width:100%;border-collapse:collapse;font-size:13px">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="repartition-modal-status" style="color:#9ca3af;margin-top:8px"></div>
+    </div>
+  </div>
+  <div data-section="sessions">
+    <h2 style="margin-top:18px">Normaliser un script</h2>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <input type="file" id="normalize-file-input" accept=".xlsx,.xls,.ods">
+      <button id="normalize-run-btn" class="btn">Lancer la normalisation</button>
+      <div id="normalize-status" style="color:#9ca3af;margin-left:8px"></div>
+    </div>
+
+    <h2 style="margin-top:18px">Jobs en cours</h2>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px">
+      <button id="jobs-clean" class="btn">Nettoyer jobs terminés/interrompus</button>
+    </div>
+    <div id="jobs"></div>
+  </div>
+  <div id="admin-footer" style="margin-top:18px;display:flex;gap:8px;justify-content:flex-end">
+    <a class="btn" id="admin-footer-dashboard" href="/dashboard.html">Tableau de bord</a>
+    <a class="btn" href="/monitoring.html">Monitoring</a>
+    <button id="refresh">Rafraîchir</button>
+    <button id="admin-logout" class="btn-danger">Se déconnecter</button>
+    <a class="btn" href="/">Retour à l'app</a>
+  </div>
+</div>
+  <script>
+// Embedding support: when loaded inside an iframe with ?only=repartition or
+// ?only=sessions, hide everything else and (for repartition) auto-open the modal.
+(function(){
+  var only = new URLSearchParams(window.location.search).get('only');
+  if(!only) return;
+  document.body.classList.add('embed');
+  document.querySelector('h1').style.display = 'none';
+  var footer = document.getElementById('admin-footer');
+  if(footer) footer.style.display = 'none';
+  document.querySelectorAll('[data-section]').forEach(function(el){
+    if(el.getAttribute('data-section') !== only) el.style.display = 'none';
+  });
+})();
+// logout handler: call server, clear admin_token and redirect to login
+document.getElementById('admin-logout').addEventListener('click', async function(){
+  if(!confirm('Se déconnecter et revenir à la page de connexion ?')) return;
+  try{
+    const adminToken = localStorage.getItem('admin_token') || null;
+    // tell server to invalidate admin token
+    await fetch('/logout', {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/json'}, body: JSON.stringify({token: adminToken})});
+    // also call logout with credentials-only to ensure cookie-based access_token is cleared
+    await fetch('/logout', {method:'POST', credentials:'same-origin'}).catch(()=>{});
+  }catch(e){}
+  try{ localStorage.removeItem('admin_token'); localStorage.removeItem('access_token'); }catch(e){}
+  // redirect to root which will show login when no access cookie present
+  window.location.href = '/';
+});
+function fmtDate(ts){return ts?new Date(ts*1000).toLocaleString():'-'}
+function load(){
+  // local saves
+  var params=new URLSearchParams(window.location.search);
+  var token=params.get('token');
+  if(!token){ document.body.innerHTML='<div style="padding:24px;color:#fca5a5">Accès non autorisé — saisie invalide ou expirée.</div>'; return; }
+  var dashLink=document.getElementById('admin-footer-dashboard');
+  if(dashLink) dashLink.href='/dashboard.html?token='+encodeURIComponent(token);
+
+  var ls=document.getElementById('local-saves'); ls.innerHTML='';
+  Object.keys(localStorage).filter(k=>k.indexOf('rythmo_save_')===0).forEach(k=>{
+    var obj=null; try{obj=JSON.parse(localStorage.getItem(k))}catch(e){}
+    var name=k.replace('rythmo_save_','');
+    var div=document.createElement('div'); div.className='row';
+    var left=document.createElement('div'); left.className='col'; left.innerHTML='<strong>'+name+'</strong>'+(obj&&obj.when?(' — '+new Date(obj.when).toLocaleString()):'')+'<div style="font-size:.9rem;color:#9ca3af">Vidéo: '+(obj&&obj.video?obj.video:'-')+'</div>';
+    var right=document.createElement('div');
+    // remove per-item Restore button (not needed); only keep Delete
+    var btnDel=document.createElement('button'); btnDel.className='btn-danger'; btnDel.textContent='Supprimer'; btnDel.onclick=()=>{ if(confirm('Supprimer sauvegarde '+name+' ?')){ localStorage.removeItem(k); load(); } };
+    right.appendChild(btnDel);
+    div.appendChild(left); div.appendChild(right); ls.appendChild(div);
+  });
+
+  // sessions
+  fetch('/admin/sessions?token='+encodeURIComponent(token)).then(r=>r.json()).then(data=>{
+    var sdiv=document.getElementById('sessions'); sdiv.innerHTML='';
+    data.sessions.forEach(s=>{
+      var div=document.createElement('div'); div.className='row';
+      var left=document.createElement('div'); left.className='col';
+      var gpname = s.group_name? (s.group_name + ' — ') : '';
+      left.innerHTML='<strong>'+ gpname + s.id +'</strong> — '+(s.script_name||'-')+'<div style="font-size:.9rem;color:#9ca3af">modifié: '+fmtDate(s.mtime)+'</div>';
+      var right=document.createElement('div');
+      var chk=document.createElement('input'); chk.type='checkbox'; chk.className='session-check'; chk.value=s.id; chk.style.marginRight='8px';
+      var restore=document.createElement('button'); restore.textContent='Restaurer'; restore.onclick=()=>{
+        // fetch session JSON and try to infer a generated video, then store a restore payload in localStorage
+        fetch('/session/'+encodeURIComponent(s.id)).then(function(r){ return r.json(); }).then(function(sess){
+          try{
+            var payload = { rows: sess.rows || [], script: sess.script_name || '', group: sess.group_name || '' };
+            // prefer to target a video matching the script base name (strip extension)
+            try{
+              var base = (sess.script_name||'').replace(/\.[^/.]+$/, '');
+              if(base) payload.video = base + '.mp4';
+            }catch(e){}
+            // also try to find a generated file matching the group or script (best-effort)
+            fetch('/admin/generated?token='+encodeURIComponent(token)).then(function(r){ return r.json(); }).then(function(gdata){
+              try{
+                var files = gdata.files || [];
+                var match = files.find(function(f){ var n = (f.name||'').toLowerCase();
+                  return (payload.group && n.indexOf(payload.group.toLowerCase())!==-1) || (payload.script && n.indexOf((payload.script||'').replace(/\.[^/.]+$/,'').toLowerCase())!==-1);
+                });
+                if(match) payload.generated = match.name;
+              }catch(e){}
+              localStorage.setItem('rythmo_admin_restore_payload', JSON.stringify(payload));
+              // open app root so it picks up the restore payload
+              window.open('/', '_self');
+            }).catch(function(){ localStorage.setItem('rythmo_admin_restore_payload', JSON.stringify(payload)); window.open('/', '_self'); });
+          }catch(e){ alert('Erreur récupération session'); }
+        }).catch(function(){ alert('Impossible de récupérer la session depuis le serveur'); });
+      };
+      var a=document.createElement('a'); a.className='btn'; a.href='/admin/session/'+encodeURIComponent(s.id)+'?token='+encodeURIComponent(token); a.textContent='Télécharger';
+      var del=document.createElement('button'); del.className='btn-danger'; del.textContent='Supprimer'; del.onclick=()=>{ if(confirm('Supprimer session '+s.id+' ?')){ fetch('/admin/delete_session?token='+encodeURIComponent(token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:s.id,token:token})}).then(()=>load()).catch(()=>alert('Erreur')); } };
+      right.appendChild(restore); right.appendChild(document.createTextNode(' ')); right.appendChild(a); right.appendChild(del);
+      div.appendChild(chk);
+      div.appendChild(left);
+      div.appendChild(right);
+      sdiv.appendChild(div);
+    });
+    // attach select-all / delete-selected handlers
+    var selAll = document.getElementById('sessions-select-all');
+    selAll.checked = false;
+    selAll.onchange = function(){ document.querySelectorAll('.session-check').forEach(c=>c.checked = selAll.checked); };
+    document.getElementById('sessions-delete-selected').onclick = function(){
+      var checked = Array.from(document.querySelectorAll('.session-check')).filter(c=>c.checked).map(c=>c.value);
+      if(checked.length===0){ alert('Aucune session sélectionnée'); return; }
+      if(!confirm('Supprimer '+checked.length+' session(s) sélectionnée(s) ?')) return;
+      // delete sequentially
+      (async function(){
+        for(const id of checked){
+          try{ await fetch('/admin/delete_session?token='+encodeURIComponent(token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,token:token})}); }catch(e){ console.error(e); }
+        }
+        load();
+      })();
+    };
+  }).catch(()=>document.getElementById('sessions').textContent='Erreur');
+
+  // generated
+  fetch('/admin/generated?token='+encodeURIComponent(token)).then(r=>r.json()).then(data=>{
+    var gdiv=document.getElementById('generated'); gdiv.innerHTML='';
+    data.files.forEach(f=>{
+      var div=document.createElement('div'); div.className='row';
+      var isDetx = f.name.toLowerCase().endsWith('.detx');
+      var left=document.createElement('div'); left.className='col'; left.innerHTML='<strong>'+f.name+'</strong> — '+Math.round(f.size/1024)+' KB <div style="font-size:.9rem;color:#9ca3af">modifié: '+fmtDate(f.mtime)+'</div>';
+      var right=document.createElement('div');
+      if(!isDetx){
+        var previewBtn=document.createElement('button'); previewBtn.className='btn'; previewBtn.textContent='Prévisualiser'; previewBtn.onclick=()=>{
+          try{
+            var modal = document.getElementById('generated-modal'); var mv = document.getElementById('admin-modal-video'); mv.pause(); mv.src = '/generated/'+encodeURIComponent(f.name)+'?token='+encodeURIComponent(token); mv.load(); modal.style.display='flex'; mv.play().catch(function(){});
+          }catch(e){alert('Erreur prévisualisation');}
+        };
+        right.appendChild(previewBtn); right.appendChild(document.createTextNode(' '));
+      }
+      var a=document.createElement('a'); a.className='btn'; a.href='/generated/'+encodeURIComponent(f.name)+'?token='+encodeURIComponent(token); a.textContent='Télécharger';
+      var del=document.createElement('button'); del.className='btn-danger'; del.textContent='Supprimer'; del.onclick=()=>{ if(confirm('Supprimer '+f.name+' ?')){ fetch('/admin/delete_generated?token='+encodeURIComponent(token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name:f.name,token:token})}).then(()=>load()).catch(()=>alert('Erreur')); } };
+      right.appendChild(a); right.appendChild(del);
+      div.appendChild(left); div.appendChild(right); gdiv.appendChild(div);
+    });
+  }).catch(()=>document.getElementById('generated').textContent='Erreur');
+
+  // jobs
+  fetch('/admin/jobs?token='+encodeURIComponent(token)).then(r=>r.json()).then(data=>{
+    var jdiv=document.getElementById('jobs'); jdiv.innerHTML='';
+    data.jobs.forEach(j=>{
+      var div=document.createElement('div'); div.className='row';
+      var left=document.createElement('div'); left.className='col'; left.innerHTML='<strong>'+j.id+'</strong> — '+j.status+' — '+(j.progress||0)+'% <div style="font-size:.9rem;color:#9ca3af">vidéo: '+(j.video||'-')+' — output: '+(j.output_name||'-')+'</div>';
+      var right=document.createElement('div');
+      if(j.status==='running' || j.status==='queued'){
+        var stop=document.createElement('button'); stop.className='btn-danger'; stop.textContent='Arrêter'; stop.onclick=()=>{ if(confirm('Arrêter la génération '+j.id+' ?')){ fetch('/admin/stop_job?token='+encodeURIComponent(token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({job_id:j.id,token:token})}).then(()=>setTimeout(load,300)).catch(()=>alert('Erreur')); } };
+        right.appendChild(stop);
+      }
+      div.appendChild(left); div.appendChild(right); jdiv.appendChild(div);
+    });
+    // attach jobs-clean handler (robust: include token in body too)
+    var jobsCleanBtn = document.getElementById('jobs-clean');
+    if(jobsCleanBtn){ jobsCleanBtn.onclick = function(){ if(!confirm('Supprimer les jobs terminés ou interrompus ?')) return; fetch('/admin/cleanup_jobs?token='+encodeURIComponent(token),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:token})}).then(()=>setTimeout(load,200)).catch(()=>alert('Erreur nettoyage')); }; }
+  }).catch(()=>document.getElementById('jobs').textContent='Erreur');
+
+  // wire clear-all local saves
+  var clearAll = document.getElementById('local-saves-clear-all');
+  if(clearAll){ clearAll.onclick = function(){ if(!confirm('Supprimer toutes les sauvegardes locales ?')) return; Object.keys(localStorage).filter(k=>k.indexOf('rythmo_save_')===0).forEach(k=>localStorage.removeItem(k)); load(); }; }
+
+  // modal close
+  var modalClose = document.getElementById('generated-modal-close');
+  if(modalClose){ modalClose.addEventListener('click', function(){ try{ var mv=document.getElementById('admin-modal-video'); mv.pause(); mv.src=''; }catch(e){} document.getElementById('generated-modal').style.display='none'; }); }
+}
+
+document.getElementById('refresh').addEventListener('click',load);
+
+// --- repartition.csv spreadsheet-style editor ---
+function csvParse(text){
+  var rows=[]; var row=[]; var field=''; var inQuotes=false;
+  for(var i=0;i<text.length;i++){
+    var c=text[i];
+    if(inQuotes){
+      if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else { inQuotes=false; } }
+      else field+=c;
+    } else {
+      if(c==='"') inQuotes=true;
+      else if(c===','){ row.push(field); field=''; }
+      else if(c==='\r'){ /* skip */ }
+      else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+      else field+=c;
+    }
+  }
+  if(field!=='' || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(function(r){ return !(r.length===1 && r[0]===''); });
+}
+function csvField(v){
+  v = v==null?'':String(v);
+  if(/[",\n]/.test(v)) return '"'+v.replace(/"/g,'""')+'"';
+  return v;
+}
+function csvSerialize(rows){
+  return rows.map(function(r){ return r.map(csvField).join(','); }).join('\n')+'\n';
+}
+function stemOf(name){ return (name||'').replace(/\.[^/.]+$/, '').toLowerCase(); }
+var repartitionHeader = [];
+var repartitionChecks = {}; // stem -> {is_new, has_script, has_vi}
+
+function repartitionCheckCell(ok){
+  var td=document.createElement('td'); td.className='check-cell';
+  var span=document.createElement('span'); span.className = ok?'ok':'missing'; span.textContent = ok?'✓':'✗';
+  td.appendChild(span); return td;
+}
+function repartitionAddRow(name, checks){
+  var tbody = document.querySelector('#repartition-table tbody');
+  var tr = document.createElement('tr');
+  if(checks && checks.is_new) tr.className='new-row';
+  for(var i=0;i<repartitionHeader.length;i++){
+    var td=document.createElement('td'); var inp=document.createElement('input');
+    if(i===0 && name) inp.value = name;
+    td.appendChild(inp); tr.appendChild(td);
+  }
+  tr.appendChild(repartitionCheckCell(checks ? checks.has_script : false));
+  tr.appendChild(repartitionCheckCell(checks ? checks.has_vi : false));
+  var tdDel=document.createElement('td'); tdDel.className='row-del';
+  var del=document.createElement('button'); del.className='btn-danger'; del.textContent='X'; del.onclick=function(){ tr.remove(); };
+  tdDel.appendChild(del); tr.appendChild(tdDel);
+  tbody.appendChild(tr);
+}
+function repartitionRenderTable(rows){
+  var thead=document.querySelector('#repartition-table thead');
+  var tbody=document.querySelector('#repartition-table tbody');
+  thead.innerHTML=''; tbody.innerHTML='';
+  repartitionHeader = rows[0] || [];
+  var htr=document.createElement('tr');
+  repartitionHeader.forEach(function(h){ var th=document.createElement('th'); th.textContent=h; htr.appendChild(th); });
+  ['Script','VI',''].forEach(function(h){ var th=document.createElement('th'); th.textContent=h; htr.appendChild(th); });
+  thead.appendChild(htr);
+  rows.slice(1).forEach(function(r){
+    var tr=document.createElement('tr');
+    for(var i=0;i<repartitionHeader.length;i++){
+      var td=document.createElement('td'); var inp=document.createElement('input'); inp.value = r[i]!=null?r[i]:''; td.appendChild(inp); tr.appendChild(td);
+    }
+    var checks = repartitionChecks[stemOf(r[0])] || {has_script:false, has_vi:false};
+    tr.appendChild(repartitionCheckCell(checks.has_script));
+    tr.appendChild(repartitionCheckCell(checks.has_vi));
+    var tdDel=document.createElement('td'); tdDel.className='row-del';
+    var del=document.createElement('button'); del.className='btn-danger'; del.textContent='X'; del.onclick=function(){ tr.remove(); };
+    tdDel.appendChild(del); tr.appendChild(tdDel);
+    tbody.appendChild(tr);
+  });
+}
+function repartitionCollectRows(){
+  var rows = [repartitionHeader];
+  document.querySelectorAll('#repartition-table tbody tr').forEach(function(tr){
+    var vals = Array.from(tr.querySelectorAll('input')).map(function(inp){ return inp.value; });
+    if(vals.some(function(v){ return v!==''; })) rows.push(vals);
+  });
+  return rows;
+}
+function repartitionDedupe(){
+  var seen = new Set();
+  document.querySelectorAll('#repartition-table tbody tr').forEach(function(tr){
+    var inp = tr.querySelector('td:first-child input');
+    var stem = stemOf(inp ? inp.value : '');
+    if(!stem) return;
+    if(seen.has(stem)) tr.remove(); else seen.add(stem);
+  });
+}
+
+document.getElementById('edit-repartition').addEventListener('click', function(){
+  var params=new URLSearchParams(window.location.search); var token=params.get('token');
+  if(!token){ alert('Token manquant'); return; }
+  var modal = document.getElementById('repartition-modal');
+  var status = document.getElementById('repartition-modal-status');
+  status.textContent = 'Chargement…'; modal.style.display='flex';
+  Promise.all([
+    fetch('/admin/repartition_raw?token='+encodeURIComponent(token)).then(function(r){ return r.json(); }),
+    fetch('/admin/repartition_checks?token='+encodeURIComponent(token)).then(function(r){ return r.json(); })
+  ]).then(function(results){
+    var csvData = results[0], checksData = results[1];
+    if(!csvData || !csvData.ok){ status.textContent = 'Erreur: '+(csvData && csvData.error?csvData.error:'unknown'); return; }
+    repartitionChecks = {};
+    if(checksData && checksData.ok){
+      checksData.items.forEach(function(it){ repartitionChecks[stemOf(it.name)] = it; });
+    }
+    repartitionRenderTable(csvParse(csvData.content));
+    repartitionDedupe();
+    status.textContent='';
+  }).catch(function(){ status.textContent = 'Erreur réseau'; });
+});
+document.getElementById('repartition-add-row').addEventListener('click', function(){ repartitionAddRow(); });
+document.getElementById('repartition-scan-new').addEventListener('click', function(){
+  var params=new URLSearchParams(window.location.search); var token=params.get('token');
+  if(!token){ alert('Token manquant'); return; }
+  var btn = document.getElementById('repartition-scan-new');
+  if(btn.disabled) return; // avoid double-click race adding duplicate rows
+  btn.disabled = true;
+  var status = document.getElementById('repartition-modal-status');
+  status.textContent = 'Recherche de nouveaux extraits…';
+  fetch('/admin/repartition_checks?token='+encodeURIComponent(token))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if(!d || !d.ok){ status.textContent = 'Erreur: '+(d && d.error?d.error:'unknown'); return; }
+      var existing = new Set(Array.from(document.querySelectorAll('#repartition-table tbody tr td:first-child input')).map(function(inp){ return stemOf(inp.value); }));
+      var added = 0;
+      d.items.forEach(function(it){
+        repartitionChecks[stemOf(it.name)] = it;
+        if(it.is_new && !existing.has(stemOf(it.name))){
+          repartitionAddRow(it.name, it);
+          existing.add(stemOf(it.name));
+          added++;
+        }
+      });
+      repartitionDedupe();
+      status.textContent = added ? (added+' nouvel(aux) extrait(s) ajouté(s)') : 'Aucun nouvel extrait trouvé';
+    })
+    .catch(function(){ status.textContent = 'Erreur réseau'; })
+    .finally(function(){ btn.disabled = false; });
+});
+document.getElementById('repartition-modal-close').addEventListener('click', function(){
+  document.getElementById('repartition-modal').style.display='none';
+});
+document.getElementById('repartition-modal-save').addEventListener('click', function(){
+  var params=new URLSearchParams(window.location.search); var token=params.get('token');
+  if(!token){ alert('Token manquant'); return; }
+  var status = document.getElementById('repartition-modal-status');
+  status.textContent = 'Mise à jour…';
+  var content = csvSerialize(repartitionCollectRows());
+  fetch('/admin/save_repartition?token='+encodeURIComponent(token), {
+    method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({content: content, token: token})
+  })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if(d && d.ok){ status.textContent = 'OK — mis à jour'; setTimeout(function(){ document.getElementById('repartition-modal').style.display='none'; },600); } else { status.textContent = 'Erreur: '+(d && d.error?d.error:'unknown'); } })
+    .catch(function(){ status.textContent = 'Erreur réseau'; });
+});
+
+
+// upload passlist txt handler
+document.getElementById('upload-passlist').addEventListener('click', function(){
+  var params=new URLSearchParams(window.location.search); var token=params.get('token');
+  if(!token){ alert('Token manquant'); return; }
+  var inp = document.getElementById('passlist-file'); if(!inp || !inp.files || inp.files.length===0){ alert('Sélectionne un fichier .txt'); return; }
+  var fd = new FormData(); fd.append('file', inp.files[0]);
+  var status = document.getElementById('upload-passlist-status'); status.textContent = 'Envoi…';
+  fetch('/admin/upload_passlist?token='+encodeURIComponent(token), { method:'POST', body: fd })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var resultDiv = document.getElementById('upload-passlist-result'); resultDiv.textContent = '';
+      if(d && d.count!==undefined){
+        status.textContent = 'OK — '+d.count+' codes enregistrés' + (d.invalidated?(' — '+d.invalidated+' tokens invalidés'):'');
+        // show digests and invalid lines for admin verification
+        try{
+          if(Array.isArray(d.digests) && d.digests.length){ resultDiv.textContent += 'Digests:\n' + d.digests.join('\n') + '\n\n'; }
+          if(Array.isArray(d.invalid_lines) && d.invalid_lines.length){ resultDiv.textContent += 'Lignes rejetées (contenant des espaces ou invalides):\n' + d.invalid_lines.join('\n') + '\n'; }
+        }catch(e){ resultDiv.textContent = '' }
+        setTimeout(load,400);
+      } else {
+        status.textContent = 'Erreur: '+(d && d.error?d.error:'unknown');
+      }
+    })
+    .catch(function(e){ status.textContent = 'Erreur réseau'; });
+});
+
+// revoke passlist handler
+document.getElementById('revoke-passlist').addEventListener('click', function(){
+  var params=new URLSearchParams(window.location.search); var token=params.get('token');
+  if(!token){ alert('Token manquant'); return; }
+  if(!confirm('Vraiment révoquer tous les mots de passe (sauf le master) ?')) return;
+  var status = document.getElementById('upload-passlist-status'); status.textContent = 'Révocation…';
+  fetch('/admin/revoke_passlist?token='+encodeURIComponent(token), { method:'POST' })
+    .then(function(r){ return r.json(); })
+    .then(function(d){ if(d && d.ok){ status.textContent = 'OK — supprimés: '+(d.prev_count||0)+' — tokens invalidés: '+(d.invalidated||0); document.getElementById('upload-passlist-result').textContent = ''; setTimeout(load,400); } else { status.textContent = 'Erreur: '+(d && d.error?d.error:'unknown'); } })
+    .catch(function(e){ status.textContent = 'Erreur réseau'; });
+});
+
+// Normalise script
+(function(){
+  var inp    = document.getElementById('normalize-file-input');
+  var btn    = document.getElementById('normalize-run-btn');
+  var status = document.getElementById('normalize-status');
+
+  btn.addEventListener('click', function(){
+    console.log('[normalize] click fired');
+    var params = new URLSearchParams(window.location.search);
+    var token = params.get('token');
+    console.log('[normalize] token:', token ? token.slice(0,8)+'…' : 'NULL');
+    if(!token){ status.textContent = 'Erreur : token manquant dans l\'URL'; console.error('[normalize] no token'); return; }
+    console.log('[normalize] files:', inp.files ? inp.files.length : 'null');
+    if(!inp.files || inp.files.length === 0){ status.textContent = 'Sélectionne un fichier .xlsx/.xls/.ods'; return; }
+    var file = inp.files[0];
+    console.log('[normalize] file:', file.name, file.size);
+    status.textContent = 'Normalisation en cours…';
+    btn.disabled = true;
+    var fd = new FormData();
+    fd.append('file', file);
+    fetch('/admin/normalize_script?token='+encodeURIComponent(token), {method:'POST', body: fd})
+      .then(function(r){
+        if(!r.ok){ return r.json().then(function(d){ throw new Error(d.error||r.status); }); }
+        var cd = r.headers.get('Content-Disposition')||'';
+        var m = cd.match(/filename[^;=\n]*=(?:(['"])(.+?)\1|([^;\n]+))/);
+        var fname = m ? (m[2]||m[3]||'script_normalise.xlsx').replace(/^"|"$/g,'') : 'script_normalise.xlsx';
+        return r.blob().then(function(b){ return {blob:b, name:fname}; });
+      })
+      .then(function(res){
+        var url = URL.createObjectURL(res.blob);
+        var a = document.createElement('a'); a.href=url; a.download=res.name;
+        document.body.appendChild(a); a.click();
+        setTimeout(function(){ URL.revokeObjectURL(url); a.remove(); }, 500);
+        status.textContent = '✓ ' + res.name;
+        inp.value = '';
+      })
+      .catch(function(e){ status.textContent = 'Erreur : ' + e.message; })
+      .finally(function(){ btn.disabled = false; });
+  });
+})();
+
+load();
+if(new URLSearchParams(window.location.search).get('only') === 'repartition'){
+  var editBtn = document.getElementById('edit-repartition');
+  if(editBtn) editBtn.click();
+}
+</script>
+</body>
+</html>

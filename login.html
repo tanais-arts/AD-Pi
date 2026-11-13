@@ -1,0 +1,25 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Les Ateliers Doublage, Bienvenue</title>
+<style>body{font-family:system-ui,Arial;padding:40px;background:#0f1724;color:#e6eef8}form{max-width:420px;margin:0 auto}input{width:100%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #334155;background:#071129;color:#e6eef8}button{padding:10px 14px;border-radius:6px;border:none;background:#10b981;color:#022c2b;cursor:pointer}h2,p.lead{text-align:center;color:#e94560;margin:6px 0}</style>
+<h2>Les Ateliers Doublage, Bienvenue</h2>
+<p class="lead">Entrez votre mot de passe</p>
+<form id="f">
+  <input id="code" type="password" placeholder="Votre mot de passe" autocomplete="off">
+  <button type="submit">Se connecter</button>
+</form>
+<p id="msg" style="color:#f87171"></p>
+<script>
+document.getElementById('f').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const code = document.getElementById('code').value.trim();
+  if(!code){ document.getElementById('msg').textContent='Code requis'; return; }
+  try{
+    const r = await fetch('/auth', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code})});
+    const j = await r.json();
+    if(!r.ok){ document.getElementById('msg').textContent = j && j.error ? j.error : 'Échec'; return; }
+    // server sets HttpOnly cookie; just redirect to index
+    window.location.href = '/';
+  }catch(e){ document.getElementById('msg').textContent='Erreur réseau'; }
+});
+</script>

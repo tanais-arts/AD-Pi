@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monitoring — Les Ateliers Doublage</title>
+<style>
+  :root{
+    --bg:#1a1a2e; --card-bg:#16213e; --panel-bg:#0f3460; --accent:#e94560;
+    --success:#53d769; --warn:#f2994a; --muted:#9aa6b2; --text:#eee; --deep:#071226;
+  }
+  * { box-sizing:border-box; }
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);margin:0;padding:20px}
+  h1{color:var(--accent);font-size:1.4rem;margin:0}
+  .topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;flex-wrap:wrap}
+  .topbar-right{display:flex;align-items:center;gap:14px;color:var(--muted);font-size:.85rem}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--success);display:inline-block;margin-right:6px;transition:background .2s}
+  .dot.stale{background:var(--warn)}
+  .dot.err{background:var(--accent)}
+  a.link-btn{color:var(--muted);text-decoration:none;border:1px solid rgba(255,255,255,.1);padding:6px 10px;border-radius:8px;font-size:.85rem}
+  a.link-btn:hover{border-color:var(--accent);color:var(--text)}
+
+  .empty{color:var(--muted);text-align:center;padding:60px 0;font-size:1rem}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .group-card{background:var(--card-bg);border-radius:14px;padding:16px 18px;box-shadow:0 4px 18px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.04)}
+  .group-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:2px}
+  .group-name{font-weight:700;font-size:1.05rem;color:var(--text)}
+  .group-extrait{color:var(--muted);font-size:.85rem;margin-bottom:10px}
+  .group-mtime{color:var(--muted);font-size:.72rem;text-align:right;white-space:nowrap}
+
+  .metric{margin-top:10px}
+  .metric-label{display:flex;justify-content:space-between;font-size:.78rem;color:var(--muted);margin-bottom:4px}
+  .metric-label b{color:var(--text);font-weight:600}
+  .bar-bg{width:100%;height:10px;background:var(--panel-bg);border-radius:5px;overflow:hidden}
+  .bar-fill{height:100%;width:0%;border-radius:5px;transition:width .4s ease,background-color .4s ease}
+
+  .rythmo-box{margin-top:14px;padding:10px 12px;background:var(--deep);border-radius:10px;border:1px solid rgba(255,255,255,.04)}
+  .rythmo-status{display:flex;align-items:center;gap:8px;font-size:.85rem;margin-bottom:6px}
+  .status-pill{padding:2px 9px;border-radius:99px;font-size:.72rem;font-weight:700;letter-spacing:.02em;text-transform:uppercase}
+  .status-pill.queued{background:#374151;color:#d1d5db}
+  .status-pill.running{background:#1e3a5f;color:#7dd3fc}
+  .status-pill.done{background:#123d24;color:var(--success)}
+  .status-pill.error{background:#4c1d24;color:var(--accent)}
+  .status-pill.none{background:#2a2a3d;color:var(--muted)}
+  .rythmo-meta{color:var(--muted);font-size:.75rem}
+  .actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .actions a,.actions button{flex:1;text-align:center;background:var(--panel-bg);color:#fff;text-decoration:none;padding:8px 10px;border-radius:8px;font-size:.82rem;font-weight:600;transition:.15s;border:none;cursor:pointer;font-family:inherit}
+  .actions a:hover,.actions button:hover{background:var(--accent)}
+  .actions a.disabled{opacity:.35;pointer-events:none}
+  .actions button.active{background:var(--accent)}
+
+  .detail-panel{grid-column:1/-1;background:var(--card-bg);border-radius:14px;padding:14px 18px;border:1px solid rgba(255,255,255,.06)}
+  .detail-panel h3{font-size:.9rem;color:var(--muted);margin-bottom:10px;font-weight:600}
+  .detail-table-wrap{max-height:360px;overflow:auto;border-radius:8px}
+  table.detail-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:.85rem}
+  table.detail-table th{position:sticky;top:0;background:var(--panel-bg);color:var(--muted);text-align:left;padding:8px 10px;font-weight:600}
+  table.detail-table td{padding:7px 10px;border-bottom:1px solid rgba(255,255,255,.05);vertical-align:top;word-wrap:break-word;overflow-wrap:break-word}
+  table.detail-table th:nth-child(1),table.detail-table td:nth-child(1){width:14%;white-space:nowrap;color:#7dd3fc;font-weight:600}
+  table.detail-table th:nth-child(2),table.detail-table td:nth-child(2){width:43%}
+  table.detail-table th:nth-child(3),table.detail-table td:nth-child(3){width:43%}
+  table.detail-table td.col-detour{color:var(--success)}
+  .detail-loading,.detail-error{color:var(--muted);font-size:.85rem;padding:8px 0}
+
+  /* login overlay */
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center;z-index:999}
+  .overlay .card{background:var(--card-bg);padding:26px;border-radius:12px;width:320px;max-width:92vw}
+  .overlay h2{color:var(--accent);margin:0 0 6px;font-size:1.1rem}
+  .overlay p{color:var(--muted);font-size:.85rem;margin:0 0 14px}
+  .overlay input{width:100%;padding:10px;margin-bottom:10px;border-radius:8px;border:1px solid #334155;background:#071129;color:var(--text);font-size:1rem}
+  .overlay button{width:100%;padding:10px;border:none;border-radius:8px;background:var(--accent);color:#fff;font-weight:600;cursor:pointer;font-size:.95rem}
+  .overlay .msg{color:var(--accent);font-size:.82rem;margin-top:8px;min-height:1em}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>Monitoring — Suivi des groupes</h1>
+  <div class="topbar-right">
+    <span><span id="status-dot" class="dot"></span><span id="status-text">—</span></span>
+  </div>
+</div>
+
+<div id="empty" class="empty" style="display:none">Aucune session en cours pour le moment.</div>
+<div id="grid" class="grid"></div>
+
+<div id="login-overlay" class="overlay">
+  <div class="card">
+    <h2>Monitoring — Accès admin</h2>
+    <p>Entrez le code admin pour afficher le suivi des groupes.</p>
+    <form id="login-form">
+      <input id="login-code" type="password" placeholder="Code admin" autocomplete="off">
+      <button type="submit">Afficher le monitoring</button>
+      <div class="msg" id="login-msg"></div>
+    </form>
+  </div>
+</div>
+
+<script>
+var REFRESH_MS = 1000;
+var TOKEN_REFRESH_MS = 4 * 60 * 1000; // re-auth well before the 5-minute admin token expiry
+var pageParams = new URLSearchParams(window.location.search);
+var nativeApp = pageParams.get('app') === '1';
+var adminToken = pageParams.get('token');
+var rememberedCode = null; // kept in memory only (not persisted) so the page can silently re-auth
+var pollTimer = null, tokenTimer = null;
+var lastGroups = [];
+var openDetails = {}; // session_id -> true while its read-only table is expanded
+var detailCache = {}; // session_id -> rows (fetched once, reused across re-renders/polls)
+
+function esc(s){ return (s==null?'':String(s)).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
+function fmtTime(ts){ return ts ? new Date(ts*1000).toLocaleTimeString() : '-'; }
+
+function authenticate(code){
+  return fetch('/admin/auth', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code:code})})
+    .then(function(r){ if(!r.ok) throw new Error('Code incorrect'); return r.json(); })
+    .then(function(d){ if(!d || !d.token) throw new Error('Code incorrect'); adminToken = d.token; return d.token; });
+}
+
+document.getElementById('login-form').addEventListener('submit', function(e){
+  e.preventDefault();
+  var code = document.getElementById('login-code').value.trim();
+  var msg = document.getElementById('login-msg');
+  if(!code){ msg.textContent = 'Code requis'; return; }
+  msg.textContent = 'Vérification…';
+  authenticate(code).then(function(){
+    rememberedCode = code;
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('login-code').value = '';
+    startPolling();
+    scheduleTokenRefresh();
+  }).catch(function(){ msg.textContent = 'Code incorrect'; });
+});
+
+function scheduleTokenRefresh(){
+  if(tokenTimer) clearInterval(tokenTimer);
+  tokenTimer = setInterval(function(){
+    if(!rememberedCode) return;
+    authenticate(rememberedCode).catch(function(){});
+  }, TOKEN_REFRESH_MS);
+}
+
+function showLogin(){
+  if(pollTimer){ clearInterval(pollTimer); pollTimer = null; }
+  if(tokenTimer){ clearInterval(tokenTimer); tokenTimer = null; }
+  adminToken = null;
+  document.getElementById('login-overlay').style.display = 'flex';
+}
+
+function setStatus(kind, text){
+  var dot = document.getElementById('status-dot');
+  dot.className = 'dot' + (kind ? ' ' + kind : '');
+  document.getElementById('status-text').textContent = text;
+}
+
+function progressBarColor(pct){
+  if(pct < 30) return '#e94560';
+  if(pct < 70) return '#f2994a';
+  return '#53d769';
+}
+function qualityBarColor(pct){
+  if(pct == null) return '#3a4658';
+  if(pct >= 85) return '#53d769';
+  if(pct >= 60) return '#f2994a';
+  return '#e94560';
+}
+
+function renderJobStatus(job, videoReady){
+  if(job){
+    var status = job.status || 'queued';
+    var label = {queued:'En attente', running:'En cours', done:'Terminé', error:'Erreur'}[status] || status;
+    var pct = Math.max(0, Math.min(100, job.progress || 0));
+    var meta = '';
+    if(job.created_at) meta += 'Lancé à ' + fmtTime(job.created_at);
+    if(status === 'running' || status === 'queued') meta += (meta?' — ':'') + (job.phase ? job.phase + ' — ' : '') + pct + '%';
+    if(status === 'error' && job.error) meta += (meta?' — ':'') + esc(job.error);
+    return ''
+      + '<div class="rythmo-status"><span class="status-pill ' + status + '">' + label + '</span></div>'
+      + '<div class="bar-bg"><div class="bar-fill" style="width:' + (status==='error'?100:pct) + '%;background:' + (status==='error'?'#e94560':status==='done'?'#53d769':'#7dd3fc') + '"></div></div>'
+      + '<div class="rythmo-meta" style="margin-top:6px">' + esc(meta) + '</div>';
+  }
+  if(videoReady){
+    return '<div class="rythmo-status"><span class="status-pill done">Prêt</span></div>'
+      + '<div class="rythmo-meta">Rythmo déjà générée</div>';
+  }
+  return '<div class="rythmo-status"><span class="status-pill none">Non lancée</span></div>'
+    + '<div class="rythmo-meta">Aucune fabrication en cours</div>';
+}
+
+function buildDetailTable(rows){
+  if(!rows || !rows.length) return '<div class="detail-error">Aucune phrase dans cette session.</div>';
+  var body = rows.map(function(r){
+    return '<tr>'
+      + '<td class="col-perso">' + esc(r.char) + '</td>'
+      + '<td>' + esc(r.text) + '</td>'
+      + '<td class="col-detour">' + esc(r.detour||'') + '</td>'
+      + '</tr>';
+  }).join('');
+  var head = '<thead><tr><th>PERSO</th><th>Texte d&#39;origine</th><th>Texte détourné</th></tr></thead>';
+  return '<div class="detail-table-wrap"><table class="detail-table">' + head + '<tbody>' + body + '</tbody></table></div>';
+}
+
+function renderDetailPanel(g){
+  if(!openDetails[g.session_id]) return '';
+  var cached = detailCache[g.session_id];
+  var body = cached ? buildDetailTable(cached.rows) : '<div class="detail-loading">Chargement…</div>';
+  return '<div class="detail-panel" data-sid="' + esc(g.session_id) + '"><h3>' + esc(g.group_name) + (g.extrait ? ' — Extrait ' + esc(g.extrait) : '') + '</h3>' + body + '</div>';
+}
+
+// (re)fetches the session rows only when the file's mtime changed since the last cache
+function ensureDetailFresh(g){
+  var cached = detailCache[g.session_id];
+  if(cached && cached.mtime === g.mtime) return;
+  fetch('/admin/session/' + encodeURIComponent(g.session_id) + '?token=' + encodeURIComponent(adminToken))
+    .then(function(r){ if(!r.ok) throw new Error('http ' + r.status); return r.json(); })
+    .then(function(data){
+      detailCache[g.session_id] = { mtime: g.mtime, rows: (data && data.rows) || [] };
+      renderGroups(lastGroups);
+    })
+    .catch(function(){
+      if(!detailCache[g.session_id]) detailCache[g.session_id] = { mtime: g.mtime, rows: [] };
+      renderGroups(lastGroups);
+    });
+}
+
+function toggleDetail(sessionId){
+  if(openDetails[sessionId]){
+    delete openDetails[sessionId];
+    renderGroups(lastGroups);
+    return;
+  }
+  openDetails[sessionId] = true;
+  renderGroups(lastGroups);
+  var g = lastGroups.find(function(x){ return x.session_id === sessionId; });
+  if(g) ensureDetailFresh(g);
+}
+
+function renderGroups(groups){
+  lastGroups = groups || [];
+  var grid = document.getElementById('grid');
+  var empty = document.getElementById('empty');
+  if(!groups || !groups.length){
+    grid.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  var scrollPositions = {};
+  grid.querySelectorAll('.detail-panel[data-sid]').forEach(function(panel){
+    var wrap = panel.querySelector('.detail-table-wrap');
+    if(wrap) scrollPositions[panel.getAttribute('data-sid')] = wrap.scrollTop;
+  });
+
+  grid.innerHTML = groups.map(function(g){
+    var qPct = g.quality_pct;
+    var videoHref = g.video_ready ? '/generated/' + encodeURIComponent(g.video_name) + '?token=' + encodeURIComponent(adminToken) : null;
+    var detxHref = g.detx_ready ? '/generated/' + encodeURIComponent(g.detx_name) + '?token=' + encodeURIComponent(adminToken) : null;
+    var isOpen = !!openDetails[g.session_id];
+    if(isOpen) ensureDetailFresh(g);
+    return ''
+      + '<div class="group-card">'
+      + '  <div class="group-head">'
+      + '    <div class="group-name">' + esc(g.group_name) + '</div>'
+      + '    <div class="group-mtime">MAJ ' + fmtTime(g.mtime) + '</div>'
+      + '  </div>'
+      + '  <div class="group-extrait">' + (g.extrait ? 'Extrait — ' + esc(g.extrait) : '') + '</div>'
+
+      + '  <div class="metric">'
+      + '    <div class="metric-label"><span>Avancement (détournement)</span><b>' + g.progress_pct + '% <span style="font-weight:400;color:var(--muted)">(' + g.rows_translated + '/' + g.rows_total + ')</span></b></div>'
+      + '    <div class="bar-bg"><div class="bar-fill" style="width:' + g.progress_pct + '%;background:' + progressBarColor(g.progress_pct) + '"></div></div>'
+      + '  </div>'
+
+      + '  <div class="metric">'
+      + '    <div class="metric-label"><span>Qualité moyenne des phrases</span><b>' + (qPct==null? '—' : qPct + '%') + '</b></div>'
+      + '    <div class="bar-bg"><div class="bar-fill" style="width:' + (qPct||0) + '%;background:' + qualityBarColor(qPct) + '"></div></div>'
+      + '  </div>'
+
+      + '  <div class="rythmo-box">'
+      + renderJobStatus(g.job, g.video_ready)
+      + '    <div class="actions">'
+      + '      <a href="' + (videoHref||'#') + '" class="' + (videoHref?'':'disabled') + '">Télécharger vidéo</a>'
+      + '      <a href="' + (detxHref||'#') + '" class="' + (detxHref?'':'disabled') + '">Télécharger DetX</a>'
+      + '      <button type="button" class="' + (isOpen?'active':'') + '" data-sid="' + esc(g.session_id) + '">' + (isOpen?'Fermer':'Voir') + '</button>'
+      + '    </div>'
+      + '  </div>'
+      + '</div>'
+      + renderDetailPanel(g);
+  }).join('');
+  grid.querySelectorAll('.actions button[data-sid]').forEach(function(btn){
+    btn.addEventListener('click', function(){ toggleDetail(btn.getAttribute('data-sid')); });
+  });
+  grid.querySelectorAll('.detail-panel[data-sid]').forEach(function(panel){
+    var sid = panel.getAttribute('data-sid');
+    var wrap = panel.querySelector('.detail-table-wrap');
+    if(wrap && scrollPositions[sid] != null) wrap.scrollTop = scrollPositions[sid];
+  });
+}
+
+function poll(){
+  if(!adminToken) return;
+  fetch('/admin/monitoring?token=' + encodeURIComponent(adminToken))
+    .then(function(r){
+      if(r.status === 403){ throw {authError:true}; }
+      if(!r.ok) throw new Error('http ' + r.status);
+      return r.json();
+    })
+    .then(function(data){
+      renderGroups(data.groups || []);
+      setStatus('', 'Mis à jour à ' + new Date().toLocaleTimeString());
+    })
+    .catch(function(err){
+      if(err && err.authError && rememberedCode){
+        // token expired: try a silent re-auth then retry once
+        authenticate(rememberedCode).then(poll).catch(function(){ setStatus('err', 'Session expirée'); showLogin(); });
+        return;
+      }
+      setStatus('stale', 'Connexion perdue…');
+    });
+}
+
+function startPolling(){
+  poll();
+  if(pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(function(){
+    // skip polling while the tab isn't visible to avoid useless load
+    if(document.hidden) return;
+    poll();
+  }, REFRESH_MS);
+}
+
+if(nativeApp && adminToken){
+  document.getElementById('login-overlay').style.display = 'none';
+  startPolling();
+}
+
+document.addEventListener('visibilitychange', function(){
+  if(!document.hidden && adminToken) poll();
+});
+</script>
+</body>
+</html>

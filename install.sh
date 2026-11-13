@@ -385,20 +385,27 @@ cat << EOF
    cp /chemin/vers/*.mp4 VIDEOS/
    cp /chemin/vers/*.xlsx SCRIPTS/
 
-4. Générer UNE vidéo SYNC :
-   python3 generate_sync.py VIDEOS/video.mp4 SCRIPTS/script.xlsx
+4. OPTION A — Interface Web (comme sur macOS) :
+   ./run_server.sh
+   → Accédez à http://<ip-du-pi>:8080 depuis votre ordinateur
 
-5. Générer TOUTES les vidéos :
-   python3 batch_sync.py
-
-6. Le résultat est dans :
-   $INSTALL_DIR/VIDEOS/SYNC/
+5. OPTION B — Ligne de commande (CLI) :
+   
+   a) Générer UNE vidéo SYNC :
+      python3 generate_sync.py VIDEOS/video.mp4 SCRIPTS/script.xlsx
+   
+   b) Générer TOUTES les vidéos :
+      python3 batch_sync.py
+   
+   c) Le résultat est dans :
+      $INSTALL_DIR/VIDEOS/SYNC/
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📖 Documentation :
    • $INSTALL_DIR/README.md
    • $INSTALL_DIR/RASPBERRY_PI_400.md
+   • $INSTALL_DIR/RUN_SERVER.md (guide serveur web)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 

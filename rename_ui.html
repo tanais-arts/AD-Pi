@@ -1,0 +1,229 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Rename suggestions — valider</title>
+<style>
+  body{font-family:system-ui,Segoe UI,Arial;margin:20px;background:#0f1724;color:#e6eef8}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.05);vertical-align:middle}
+  input[type=text]{width:100%;padding:6px;border-radius:6px;border:1px solid #334155;background:#071129;color:#e6eef8}
+  .btn{padding:8px 12px;border-radius:8px;border:none;cursor:pointer}
+  .accept{background:#0ea5a4;color:#022c2b}
+  .ignore{background:#334155;color:#e6eef8}
+  .download{background:#2563eb;color:white}
+  .accepted {background:linear-gradient(90deg,#10b98133,#10b98111);}
+  .ignored {opacity:0.6}
+  .score{font-size:0.9em;color:#94a3b8}
+  header{display:flex;gap:12px;align-items:center;margin-bottom:12px}
+  small{color:#94a3b8}
+</style>
+<header>
+  <h2 style="margin:0">Validation des propositions</h2>
+  <small>Charger `rename_suggestions.csv` (généré par `propose_renames.py`)</small>
+  <button id="download" class="btn download">Télécharger décisions CSV</button>
+  <button id="apply" class="btn" title="Ne fait rien automatiquement — utilise apply_renames.py">Appliquer (via script)</button>
+  <button id="adminLogin" class="btn">Admin</button>
+  <span id="adminStatus" style="color:#94a3b8;margin-left:6px"></span>
+  <span id="fetchStatus" style="color:#94a3b8;margin-left:12px"></span>
+</header>
+<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+  <input type="file" id="file" accept=".csv">
+  <button id="autofetch" class="btn">Charger CSV automatiques</button>
+  <input type="file" id="file-scripts" accept=".csv">
+</div>
+<table id="tbl">
+  <thead><tr><th>Vidéo</th><th>Script</th><th>Suggestion</th><th>Score</th><th>Action</th></tr></thead>
+  <tbody></tbody>
+</table>
+
+<script>
+function parseCSV(text){
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  const hdr = lines.shift().split(',').map(h=>h.trim());
+  return lines.map(l=>{
+    // naive CSV parse for simple exported files
+    const parts = l.match(/("[^"]*"|[^,]+)/g) || [];
+    const obj = {};
+    hdr.forEach((k,i)=>{
+      let v = parts[i] || '';
+      v = v.replace(/^"/, '').replace(/"$/, '').replace(/""/g,'"');
+      obj[k]=v.trim();
+    });
+    return obj;
+  });
+}
+
+async function tryAutoFetch(){
+  const statusEl = document.getElementById('fetchStatus');
+  statusEl.textContent = 'chargement...';
+  const bust = '?_=' + Date.now();
+  try{
+    const r = await fetch('rename_suggestions.csv' + bust, {cache:'no-store'});
+    if(r.ok){ const t=await r.text(); render(parseCSV(t)); }
+    else { console.warn('rename_suggestions.csv fetch failed', r.status); }
+  }catch(e){ console.warn('fetch suggestions error', e); }
+  try{
+    const r2 = await fetch('scripts_without_video.csv' + bust, {cache:'no-store'});
+    if(r2.ok){ const t2=await r2.text(); renderScriptsWithoutVideo(t2); }
+    else { console.warn('scripts_without_video.csv fetch failed', r2.status); }
+  }catch(e){ console.warn('fetch scripts_without_video error', e); }
+  statusEl.textContent = '';
+}
+
+document.getElementById('file').addEventListener('change',async function(e){
+  const f=e.target.files[0]; if(!f) return;
+  const txt=await f.text();
+  const data=parseCSV(txt);
+  render(data);
+});
+
+document.getElementById('file-scripts').addEventListener('change',async function(e){
+  const f=e.target.files[0]; if(!f) return;
+  const txt=await f.text(); renderScriptsWithoutVideo(txt);
+});
+
+document.getElementById('autofetch').addEventListener('click',tryAutoFetch);
+
+// Auto-load CSVs on page load so the UI is populated automatically
+window.addEventListener('load', tryAutoFetch);
+
+function render(data){
+  const tbody=document.querySelector('#tbl tbody'); tbody.innerHTML='';
+  data.forEach((r,idx)=>{
+    const tr=document.createElement('tr');
+    const video=r.video||''; const script=r.script||''; const sug=r.suggestion||''; const score=r.score||'';
+    tr.innerHTML=`
+      <td>${video}</td>
+      <td>${script}</td>
+      <td><input type=text class="newname" value="${sug||''}" placeholder="laisser vide = aucun changement"></td>
+      <td class="score">${score}</td>
+      <td>
+        <button class="btn accept">✔ Valider</button>
+        <button class="btn ignore">✖ Ignorer</button>
+      </td>`;
+    tr.dataset.video=video; tr.dataset.script=script; tr.dataset.suggestion=sug; tr.dataset.score=score;
+    const inp=tr.querySelector('.newname');
+    const btnOk=tr.querySelector('.accept');
+    const btnIg=tr.querySelector('.ignore');
+    // Add rename button for scripts
+    if(script){
+      const btnRename=document.createElement('button'); btnRename.className='btn'; btnRename.textContent='Renommer'; btnRename.style.marginLeft='8px';
+      btnRename.addEventListener('click',()=>{ prefixScript(script); });
+      tr.querySelector('td:last-child').appendChild(btnRename);
+    }
+    btnOk.addEventListener('click',()=>{ tr.classList.remove('ignored'); tr.classList.add('accepted'); tr.dataset.decision='accept'; tr.dataset.newname=inp.value.trim(); });
+    btnIg.addEventListener('click',()=>{ tr.classList.remove('accepted'); tr.classList.add('ignored'); tr.dataset.decision='ignore'; tr.dataset.newname=''; });
+    // If no script (video without script), add move button
+    if(!script){
+      const mv=document.createElement('button'); mv.className='btn'; mv.textContent='Envoyer dans Videos sans script'; mv.style.marginLeft='8px';
+      mv.addEventListener('click',()=>{ moveVideoToNoScript(video); });
+      tr.querySelector('td:last-child').appendChild(mv);
+    }
+    inp.addEventListener('input',()=>{ tr.dataset.decision='custom'; tr.dataset.newname=inp.value.trim(); tr.classList.remove('ignored'); tr.classList.add('accepted'); });
+    tbody.appendChild(tr);
+  });
+}
+
+function renderScriptsWithoutVideo(txt){
+  const lines = txt.split(/\r?\n/).filter(Boolean);
+  const tbody2 = document.querySelector('#tbl tbody');
+  const rows = lines.slice(1).map(l=>{ const m = l.match(/("[^"]*"|[^,]+)/g)||[]; return (m[0]||'').replace(/^"|"$/g,''); });
+  rows.forEach(s=>{
+    if(!s) return;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td></td><td>${s}</td><td></td><td class="score"></td><td></td>`;
+    const btn=document.createElement('button'); btn.className='btn'; btn.textContent='Envoyer dans Scripts sans vidéo';
+    btn.addEventListener('click',()=>{ moveScriptToNoVideo(s); });
+    tr.querySelector('td:last-child').appendChild(btn);
+    tbody2.appendChild(tr);
+  });
+}
+
+function downloadDecisions(){
+  const rows=[['video','script','score','suggestion','decision','new_name']];
+  document.querySelectorAll('#tbl tbody tr').forEach(tr=>{
+    const v=tr.dataset.video||''; const s=tr.dataset.script||''; const sc=tr.dataset.score||''; const sug=tr.dataset.suggestion||''; const dec=tr.dataset.decision||''; const nn=tr.dataset.newname||'';
+    rows.push([v,s,sc,sug,dec,nn]);
+  });
+  const csv = rows.map(r=>r.map(c=>'"'+String(c||'').replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download='rename_decisions.csv'; a.click(); URL.revokeObjectURL(url);
+}
+
+document.getElementById('download').addEventListener('click',downloadDecisions);
+document.getElementById('apply').addEventListener('click',()=>{ alert('Pour appliquer les renommages: téléchargez les décisions CSV puis lancez `python3 apply_renames.py rename_decisions.csv` dans le dossier du projet.'); });
+
+async function moveVideoToNoScript(video){
+  const token = await ensureToken(); if(!token) return;
+  try{
+    const r = await fetch('/admin/move_video_to_no_script', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({video,token})});
+    const j = await r.json(); if(r.ok){ alert('Déplacé: '+(j.name||video)); tryAutoFetch(); } else { if(j && j.error) alert('Erreur: '+j.error); else alert('Erreur: '+r.status); }
+  }catch(e){ alert('Erreur réseau'); }
+}
+
+async function moveScriptToNoVideo(script){
+  const token = await ensureToken(); if(!token) return;
+  try{
+    const r = await fetch('/admin/move_script_to_no_video', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({script,token})});
+    const j = await r.json(); if(r.ok){ alert('Déplacé: '+(j.name||script)); tryAutoFetch(); } else { if(j && j.error) alert('Erreur: '+j.error); else alert('Erreur: '+r.status); }
+  }catch(e){ alert('Erreur réseau'); }
+}
+
+async function prefixScript(script){
+  const token = await ensureToken(); if(!token) return;
+  try{
+    const r = await fetch('/admin/prefix_script', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({script,token})});
+    const j = await r.json();
+    if(r.ok){
+      // update UI rows that referenced the old script name
+      document.querySelectorAll('#tbl tbody tr').forEach(tr=>{
+        if((tr.dataset.script||'') === script){
+          tr.dataset.script = j.name;
+          tr.querySelectorAll('td')[1].textContent = j.name;
+        }
+      });
+      alert('Renommé: '+j.name);
+      tryAutoFetch();
+    } else {
+      if(j && j.error) alert('Erreur: '+j.error); else alert('Erreur: '+r.status);
+    }
+  }catch(e){ alert('Erreur réseau'); }
+}
+
+// Admin token helpers: store token in localStorage and reuse for a short session
+async function ensureToken(){
+  let t = localStorage.getItem('admin_token');
+  if(t) return t;
+  const code = await showAdminPrompt('Admin code (4 chiffres) — annuler pour stopper');
+  if(!code) return null;
+  try{
+    const r = await fetch('/admin/auth', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code})});
+    const j = await r.json();
+    if(r.ok && j.token){ localStorage.setItem('admin_token', j.token); updateAdminStatus(); return j.token; }
+    alert('Auth failed'); return null;
+  }catch(e){ alert('Erreur réseau'); return null; }
+}
+
+function updateAdminStatus(){
+  const s = document.getElementById('adminStatus'); const t = localStorage.getItem('admin_token'); s.textContent = t ? 'token actif' : '';
+}
+
+document.getElementById('adminLogin').addEventListener('click', async ()=>{ await ensureToken(); updateAdminStatus(); });
+window.addEventListener('load', updateAdminStatus);
+
+// reuse a small modal prompt for admin code (password) to avoid native prompt()
+function showAdminPrompt(promptText){
+  return new Promise(function(resolve){
+    var overlay = document.createElement('div'); overlay.style.position='fixed'; overlay.style.left=0; overlay.style.top=0; overlay.style.right=0; overlay.style.bottom=0; overlay.style.background='rgba(0,0,0,0.6)'; overlay.style.display='flex'; overlay.style.alignItems='center'; overlay.style.justifyContent='center'; overlay.style.zIndex=9999;
+    var card = document.createElement('div'); card.style.background='#071029'; card.style.padding='16px'; card.style.borderRadius='8px'; card.style.width='320px'; card.style.boxSizing='border-box';
+    var label = document.createElement('div'); label.textContent = promptText; label.style.marginBottom='8px'; label.style.color='#e6eef8';
+    var input = document.createElement('input'); input.type='password'; input.style.width='100%'; input.style.padding='8px'; input.style.borderRadius='6px'; input.style.border='1px solid #334155'; input.style.background='#0b1220'; input.style.color='#e6eef8'; input.autocomplete='off';
+    var btnWrap = document.createElement('div'); btnWrap.style.display='flex'; btnWrap.style.justifyContent='flex-end'; btnWrap.style.gap='8px'; btnWrap.style.marginTop='12px';
+    var btnCancel = document.createElement('button'); btnCancel.textContent='Annuler'; btnCancel.style.padding='8px 12px'; btnCancel.onclick = function(){ document.body.removeChild(overlay); resolve(null); };
+    var btnOk = document.createElement('button'); btnOk.textContent='OK'; btnOk.style.padding='8px 12px'; btnOk.onclick = function(){ var v = input.value; document.body.removeChild(overlay); resolve(v); };
+    btnWrap.appendChild(btnCancel); btnWrap.appendChild(btnOk);
+    card.appendChild(label); card.appendChild(input); card.appendChild(btnWrap); overlay.appendChild(card); document.body.appendChild(overlay);
+    input.focus(); input.addEventListener('keydown', function(e){ if(e.key==='Enter'){ btnOk.click(); } if(e.key==='Escape'){ btnCancel.click(); } });
+  });
+}
+</script>

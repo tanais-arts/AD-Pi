@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tableau de bord — Rythmo</title>
+<style>
+  body{font-family:system-ui, -apple-system, sans-serif;background:#0f1724;color:#e6eef8;margin:0;padding:0}
+  header{background:#071029;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(255,255,255,.08)}
+  header h1{color:#7dd3fc;font-size:18px;margin:0}
+  nav{display:flex;gap:4px;padding:0 24px;background:#071029;border-bottom:1px solid rgba(255,255,255,.08)}
+  nav button{background:transparent;border:0;color:#9ca3af;padding:12px 16px;cursor:pointer;font-size:14px;border-bottom:2px solid transparent}
+  nav button.active{color:#7dd3fc;border-bottom-color:#7dd3fc}
+  .tab{display:none;padding:20px 24px}
+  .tab.active{display:block}
+  .tab iframe{width:100%;height:calc(100vh - 110px);border:0;border-radius:8px;background:#071029}
+  .card{background:#071029;border-radius:10px;padding:18px;max-width:900px;margin:0 0 16px}
+  .card h2{color:#7dd3fc;margin-top:0;font-size:16px}
+  label{display:block;font-size:13px;color:#9ca3af;margin-bottom:4px}
+  input[type=text]{width:100%;box-sizing:border-box;background:#0b1220;color:#e6eef8;border:1px solid rgba(255,255,255,.1);border-radius:6px;padding:8px;font-size:13px}
+  .field{margin-bottom:12px}
+  .field .row{display:flex;gap:8px;align-items:center}
+  .field .row input{flex:1}
+  button, a.btn{background:#1e293b;color:#fff;border:0;border-radius:8px;cursor:pointer;font-size:14px;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 12px;line-height:36px;text-decoration:none}
+  button:disabled{opacity:.55;cursor:wait}
+  .btn-danger{background:#be123c;color:#fff}
+  .btn-primary{background:#10b981;color:#042}
+  .status-line{display:flex;gap:16px;align-items:center;margin-bottom:12px;font-size:14px}
+  .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px}
+  .dot.on{background:#10b981}
+  .dot.off{background:#f87171}
+  .msg{color:#9ca3af;font-size:13px;margin-top:8px}
+  .modal-overlay{position:fixed;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:2000}
+  .modal-card{background:#071029;padding:16px;border-radius:10px;width:520px;max-width:90%}
+  .browse-list{max-height:320px;overflow:auto;border:1px solid rgba(255,255,255,.1);border-radius:6px;margin:10px 0}
+  .browse-item{padding:8px 10px;cursor:pointer;border-bottom:1px solid rgba(255,255,255,.05)}
+  .browse-item:hover{background:#0b1220}
+  .repartition-editor{max-width:none}
+  .repartition-actions{display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+  .repartition-table-wrap{max-height:calc(100vh - 230px);overflow:auto;border:1px solid rgba(255,255,255,.1);border-radius:6px}
+  #repartition-table{width:100%;table-layout:auto;border-collapse:collapse;font-size:13px}
+  #repartition-table th,#repartition-table td{border:1px solid rgba(255,255,255,.08);padding:0;text-align:left}
+  #repartition-table th{background:#0b1220;color:#7dd3fc;padding:6px 8px;white-space:nowrap;position:sticky;top:0;z-index:1}
+  #repartition-table th:first-child,#repartition-table td:first-child{min-width:260px}
+  #repartition-table td input{width:100%;min-width:100%;box-sizing:border-box;background:transparent;color:#e6eef8;border:0;padding:6px 8px;font-size:13px;white-space:pre}
+  #repartition-table td input:focus{background:#0b1220;outline:1px solid #7dd3fc}
+  #repartition-table td.row-del{text-align:center;width:36px}
+  #repartition-table td.check-cell{text-align:center;font-size:14px;width:50px}
+  #repartition-table td.check-cell .ok{color:#10b981}
+  #repartition-table td.check-cell .missing{color:#f87171}
+  #repartition-table tr.new-row{background:rgba(16,185,129,.08)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Tableau de bord — Rythmo</h1>
+  <div id="dash-header-actions">
+    <a class="btn" href="/" style="margin-right:8px">Retour à l'app</a>
+    <button id="dash-logout" class="btn-danger">Se déconnecter</button>
+  </div>
+</header>
+<nav>
+  <button class="tab-btn active" data-tab="setup">Setup</button>
+  <button class="tab-btn" data-tab="repartition">Répartition</button>
+  <button class="tab-btn" data-tab="monitoring">Monitoring</button>
+  <button class="tab-btn" data-tab="sessions">Gestion / Sessions</button>
+</nav>
+
+<div id="tab-setup" class="tab active">
+  <div class="card">
+    <h2>Service</h2>
+    <div class="status-line">
+      <span><span id="service-dot" class="dot off"></span><span id="service-text">Statut inconnu</span></span>
+      <span id="service-address" style="color:#9ca3af"></span>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button id="service-restart">Relancer le serveur</button>
+      <button id="service-stop" class="btn-danger">Arrêter</button>
+      <button id="service-refresh">Rafraîchir le statut</button>
+      <button id="service-copy">Copier URL</button>
+    </div>
+    <div id="service-msg" class="msg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Dossiers de contenu</h2>
+    <div class="field">
+      <label>Dossier Vidéos</label>
+      <div class="row"><input type="text" id="path-videos_dir"><button class="browse-btn" data-target="videos_dir">Parcourir</button></div>
+    </div>
+    <div class="field">
+      <label>Dossier Scripts</label>
+      <div class="row"><input type="text" id="path-scripts_dir"><button class="browse-btn" data-target="scripts_dir">Parcourir</button></div>
+    </div>
+    <div class="field">
+      <label>Dossier VI (audio de référence)</label>
+      <div class="row"><input type="text" id="path-vi_dir"><button class="browse-btn" data-target="vi_dir">Parcourir</button></div>
+    </div>
+    <div class="field">
+      <label>Fichier repartition.csv</label>
+      <div class="row"><input type="text" id="path-repartition_csv"><button class="browse-btn" data-target="repartition_csv">Parcourir</button></div>
+    </div>
+    <button id="paths-save" class="btn-primary">Enregistrer les dossiers</button>
+    <div id="paths-msg" class="msg">Un redémarrage du service est nécessaire pour appliquer les changements.</div>
+  </div>
+
+  <div class="card">
+    <h2>Sécurité</h2>
+    <div class="field">
+      <label>Nouveau code admin (4 chiffres)</label>
+      <div class="row"><input type="text" id="new-admin-code" maxlength="4" placeholder="0000"><button id="save-admin-code">Changer</button></div>
+    </div>
+    <div class="field">
+      <label>Nouveau master code</label>
+      <div class="row"><input type="text" id="new-master-code" placeholder="ex: 0026-actinG"><button id="save-master-code">Changer</button></div>
+    </div>
+    <div id="codes-msg" class="msg"></div>
+  </div>
+</div>
+
+<div id="tab-repartition" class="tab">
+  <div class="card repartition-editor">
+    <h2>Liste de répartition</h2>
+    <div class="repartition-actions">
+      <button id="repartition-scan-new">Chercher de nouveaux extraits</button>
+      <button id="repartition-add-row">+ Ligne</button>
+      <button id="repartition-save" class="btn-primary">Mettre à jour</button>
+      <span id="repartition-status" class="msg"></span>
+    </div>
+    <div class="repartition-table-wrap">
+      <table id="repartition-table"><thead></thead><tbody></tbody></table>
+    </div>
+  </div>
+</div>
+
+<div id="tab-monitoring" class="tab">
+  <iframe id="iframe-monitoring"></iframe>
+</div>
+
+<div id="tab-sessions" class="tab">
+  <iframe id="iframe-sessions"></iframe>
+</div>
+
+<!-- folder browser modal -->
+<div id="browse-modal" class="modal-overlay">
+  <div class="modal-card">
+    <strong id="browse-title">Choisir un dossier</strong>
+    <div id="browse-current" style="font-size:12px;color:#9ca3af;margin-top:8px;word-break:break-all"></div>
+    <div id="browse-list" class="browse-list"></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button id="browse-cancel">Annuler</button>
+      <button id="browse-choose" class="btn-primary">Choisir ce dossier</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var params = new URLSearchParams(window.location.search);
+var token = params.get('token');
+var isApp = params.get('app') === '1';
+if(!token){ document.body.innerHTML = '<div style="padding:24px;color:#fca5a5">Accès non autorisé — jeton manquant ou expiré.</div>'; }
+if(isApp){
+  var actions = document.getElementById('dash-header-actions');
+  if(actions) actions.style.display = 'none';
+}
+
+function qs(extra){ return '?token=' + encodeURIComponent(token) + (extra || (isApp ? '&app=1' : '')); }
+
+var monitoringFrame = document.getElementById('iframe-monitoring');
+if(monitoringFrame && token) monitoringFrame.src = '/monitoring.html' + qs('&app=1');
+
+var repartitionHeader = [];
+var repartitionChecks = {};
+function csvParse(text){
+  var rows=[], row=[], field='', quoted=false;
+  for(var i=0;i<text.length;i++){
+    var c=text[i];
+    if(quoted){ if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else quoted=false; } else field+=c; }
+    else if(c==='"') quoted=true;
+    else if(c===','){ row.push(field); field=''; }
+    else if(c==='\r'){}
+    else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+    else field+=c;
+  }
+  if(field!=='' || row.length){ row.push(field); rows.push(row); }
+  return rows.filter(function(r){ return !(r.length===1 && r[0]===''); });
+}
+function csvField(value){ value=value==null?'':String(value); return /[",\n]/.test(value) ? '"'+value.replace(/"/g,'""')+'"' : value; }
+function csvSerialize(rows){ return rows.map(function(row){ return row.map(csvField).join(','); }).join('\n')+'\n'; }
+function repartitionStem(name){ return (name||'').replace(/\.[^/.]+$/,'').toLowerCase(); }
+function repartitionCheckCell(ok){
+  var td=document.createElement('td'); td.className='check-cell';
+  var span=document.createElement('span'); span.className=ok?'ok':'missing'; span.textContent=ok?'✓':'✗';
+  td.appendChild(span); return td;
+}
+function repartitionAddRow(name, checks){
+  var tbody=document.querySelector('#repartition-table tbody'), tr=document.createElement('tr');
+  if(checks && checks.is_new) tr.className='new-row';
+  for(var i=0;i<repartitionHeader.length;i++){
+    var td=document.createElement('td'), input=document.createElement('input');
+    if(i===0 && name) input.value=name; td.appendChild(input); tr.appendChild(td);
+  }
+  tr.appendChild(repartitionCheckCell(checks ? checks.has_script : false));
+  tr.appendChild(repartitionCheckCell(checks ? checks.has_vi : false));
+  var delCell=document.createElement('td'); delCell.className='row-del';
+  var del=document.createElement('button'); del.className='btn-danger'; del.textContent='X'; del.onclick=function(){ tr.remove(); };
+  delCell.appendChild(del); tr.appendChild(delCell); tbody.appendChild(tr);
+}
+function renderRepartition(rows){
+  var thead=document.querySelector('#repartition-table thead'), tbody=document.querySelector('#repartition-table tbody');
+  thead.innerHTML=''; tbody.innerHTML=''; repartitionHeader=rows[0]||[];
+  var header=document.createElement('tr');
+  repartitionHeader.forEach(function(value){ var th=document.createElement('th'); th.textContent=value; header.appendChild(th); });
+  ['Script','VI',''].forEach(function(value){ var th=document.createElement('th'); th.textContent=value; header.appendChild(th); });
+  thead.appendChild(header);
+  rows.slice(1).forEach(function(row){
+    var tr=document.createElement('tr');
+    for(var i=0;i<repartitionHeader.length;i++){
+      var td=document.createElement('td'), input=document.createElement('input'); input.value=row[i]!=null?row[i]:''; td.appendChild(input); tr.appendChild(td);
+    }
+    var checks=repartitionChecks[repartitionStem(row[0])]||{};
+    tr.appendChild(repartitionCheckCell(checks.has_script)); tr.appendChild(repartitionCheckCell(checks.has_vi));
+    var delCell=document.createElement('td'); delCell.className='row-del';
+    var del=document.createElement('button'); del.className='btn-danger'; del.textContent='X'; del.onclick=function(){ tr.remove(); };
+    delCell.appendChild(del); tr.appendChild(delCell); tbody.appendChild(tr);
+  });
+}
+function loadRepartition(){
+  var status=document.getElementById('repartition-status'); status.textContent='Chargement…';
+  Promise.all([
+    fetch('/admin/repartition_raw'+qs()).then(function(r){ return r.json(); }),
+    fetch('/admin/repartition_checks'+qs()).then(function(r){ return r.json(); })
+  ]).then(function(results){
+    var csv=results[0], checks=results[1];
+    if(!csv || !csv.ok) throw new Error(csv && csv.error || 'Erreur CSV');
+    repartitionChecks={};
+    if(checks && checks.ok) checks.items.forEach(function(item){ repartitionChecks[repartitionStem(item.name)]=item; });
+    renderRepartition(csvParse(csv.content)); status.textContent='';
+  }).catch(function(error){ status.textContent='Erreur : '+error.message; });
+}
+function collectRepartition(){
+  var rows=[repartitionHeader];
+  document.querySelectorAll('#repartition-table tbody tr').forEach(function(tr){
+    var values=Array.from(tr.querySelectorAll('input')).map(function(input){ return input.value; });
+    if(values.some(function(value){ return value!==''; })) rows.push(values);
+  });
+  return rows;
+}
+document.getElementById('repartition-add-row').addEventListener('click',function(){ repartitionAddRow(); });
+document.getElementById('repartition-save').addEventListener('click',function(){
+  var button=this, status=document.getElementById('repartition-status'); button.disabled=true; status.textContent='Mise à jour…';
+  fetch('/admin/save_repartition'+qs(),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content:csvSerialize(collectRepartition()),token:token})})
+    .then(function(r){ return r.json(); }).then(function(data){ status.textContent=data && data.ok?'OK — mis à jour':'Erreur : '+(data && data.error || 'inconnue'); })
+    .catch(function(){ status.textContent='Erreur réseau'; }).finally(function(){ button.disabled=false; });
+});
+document.getElementById('repartition-scan-new').addEventListener('click',function(){
+  var button=this, status=document.getElementById('repartition-status'); button.disabled=true; status.textContent='Recherche…';
+  fetch('/admin/repartition_checks'+qs()).then(function(r){ return r.json(); }).then(function(data){
+    if(!data || !data.ok) throw new Error(data && data.error || 'Erreur');
+    var existing=new Set(Array.from(document.querySelectorAll('#repartition-table tbody tr td:first-child input')).map(function(input){ return repartitionStem(input.value); }));
+    var added=0; data.items.forEach(function(item){ repartitionChecks[repartitionStem(item.name)]=item; if(item.is_new && !existing.has(repartitionStem(item.name))){ repartitionAddRow(item.name,item); existing.add(repartitionStem(item.name)); added++; } });
+    status.textContent=added ? added+' nouvel(aux) extrait(s) ajouté(s)' : 'Aucun nouvel extrait trouvé';
+  }).catch(function(error){ status.textContent='Erreur : '+error.message; }).finally(function(){ button.disabled=false; });
+});
+
+// tab switching
+document.querySelectorAll('.tab-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    document.querySelectorAll('.tab-btn').forEach(function(b){ b.classList.remove('active'); });
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+    btn.classList.add('active');
+    var key = btn.getAttribute('data-tab');
+    document.getElementById('tab-'+key).classList.add('active');
+    if(key === 'repartition'){
+      loadRepartition();
+    }
+    if(key === 'sessions'){
+      var f2 = document.getElementById('iframe-sessions');
+      if(!f2.src) f2.src = '/admin.html' + qs('&only=sessions');
+    }
+  });
+});
+
+document.getElementById('dash-logout').addEventListener('click', async function(){
+  if(!confirm('Se déconnecter ?')) return;
+  try{ await fetch('/logout', {method:'POST', credentials:'same-origin'}); }catch(e){}
+  window.location.href = '/';
+});
+
+// ---- Setup: service status ----
+function refreshService(){
+  return fetch('/admin/setup_info' + qs()).then(function(r){ return r.json(); }).then(function(d){
+    if(!d || !d.ok) return;
+    document.getElementById('service-address').textContent = 'http://' + d.ip + ':' + d.port;
+    var running = d.service && d.service.running;
+    document.getElementById('service-dot').className = 'dot ' + (running ? 'on' : 'off');
+    document.getElementById('service-text').textContent = running ? ('En cours (pid ' + d.service.pid + ')') : 'Arrêté';
+    ['videos_dir','scripts_dir','vi_dir','repartition_csv'].forEach(function(k){
+      document.getElementById('path-'+k).value = d.paths[k] || '';
+    });
+  }).catch(function(){});
+}
+function serviceAction(button, action, waitMessage, successMessage){
+  var msg = document.getElementById('service-msg');
+  button.disabled = true;
+  button.dataset.label = button.textContent;
+  button.textContent = waitMessage;
+  msg.textContent = waitMessage;
+  fetch('/admin/' + action + qs(), {method:'POST', headers:{'Content-Type':'application/json'}})
+    .then(function(r){ return r.json().then(function(d){ return {response:r, data:d}; }); })
+    .then(function(result){
+      if(!result.response.ok || !result.data.ok) throw new Error(result.data.error || ('HTTP ' + result.response.status));
+      if(action === 'service_stop'){
+        document.getElementById('service-dot').className = 'dot off';
+        document.getElementById('service-text').textContent = 'Arrêté';
+        msg.textContent = 'Serveur arrêté.';
+      } else {
+        msg.textContent = result.data.message || successMessage;
+        setTimeout(refreshService, 3000);
+      }
+    })
+    .catch(function(err){ msg.textContent = 'Erreur : ' + err.message; refreshService(); })
+    .finally(function(){ button.disabled = false; button.textContent = button.dataset.label; });
+}
+
+document.getElementById('service-refresh').addEventListener('click', function(){
+  var button = this;
+  button.disabled = true;
+  button.dataset.label = button.textContent;
+  button.textContent = 'Actualisation…';
+  refreshService().finally(function(){ button.disabled = false; button.textContent = button.dataset.label; });
+});
+document.getElementById('service-copy').addEventListener('click', function(){
+  var button = this;
+  var address = document.getElementById('service-address').textContent.trim();
+  var msg = document.getElementById('service-msg');
+  if(!address){ msg.textContent = 'URL indisponible'; return; }
+  function copied(){
+    button.dataset.label = button.dataset.label || button.textContent;
+    button.textContent = 'Copiée';
+    msg.textContent = 'URL copiée dans le presse-papiers.';
+    setTimeout(function(){ button.textContent = button.dataset.label; }, 1500);
+  }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(address).then(copied).catch(function(){
+      var input = document.createElement('textarea');
+      input.value = address; document.body.appendChild(input); input.select();
+      try{ document.execCommand('copy'); copied(); }catch(e){ msg.textContent = 'Copie impossible'; }
+      input.remove();
+    });
+    return;
+  }
+  var input = document.createElement('textarea');
+  input.value = address; document.body.appendChild(input); input.select();
+  try{ document.execCommand('copy'); copied(); }catch(e){ msg.textContent = 'Copie impossible'; }
+  input.remove();
+});
+document.getElementById('service-restart').addEventListener('click', function(){
+  if(!confirm('Relancer le serveur maintenant ?')) return;
+  if(isApp){
+    document.getElementById('service-msg').textContent = 'Redémarrage…';
+    window.location.href = 'native-restart://service';
+    return;
+  }
+  serviceAction(this, 'service_restart', 'Redémarrage…', 'Redémarrage demandé');
+});
+document.getElementById('service-stop').addEventListener('click', function(){
+  if(!confirm("Arrêter le service ? Il faudra le relancer manuellement (voir 'Démarrer le serveur.command').")) return;
+  serviceAction(this, 'service_stop', 'Arrêt…', 'Arrêt demandé');
+});
+
+// ---- Setup: folder browser ----
+var browseTarget = null;
+var browsePath = null;
+function openBrowser(target){
+  browseTarget = target;
+  browsePath = document.getElementById('path-'+target).value || null;
+  document.getElementById('browse-modal').style.display = 'flex';
+  loadBrowse(browsePath);
+}
+function loadBrowse(path){
+  var url = '/admin/browse_dir' + qs(path ? ('&path=' + encodeURIComponent(path)) : '');
+  fetch(url).then(function(r){ return r.json(); }).then(function(d){
+    if(!d || !d.ok){ document.getElementById('browse-current').textContent = 'Erreur: ' + (d && d.error || 'inconnue'); return; }
+    browsePath = d.path;
+    document.getElementById('browse-current').textContent = d.path;
+    var list = document.getElementById('browse-list'); list.innerHTML = '';
+    var up = document.createElement('div'); up.className = 'browse-item'; up.textContent = '.. (dossier parent)';
+    up.onclick = function(){ loadBrowse(d.parent); };
+    list.appendChild(up);
+    d.dirs.forEach(function(name){
+      var it = document.createElement('div'); it.className = 'browse-item'; it.textContent = name;
+      it.onclick = function(){ loadBrowse(d.path + '/' + name); };
+      list.appendChild(it);
+    });
+  }).catch(function(){});
+}
+document.querySelectorAll('.browse-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){ openBrowser(btn.getAttribute('data-target')); });
+});
+document.getElementById('browse-cancel').addEventListener('click', function(){ document.getElementById('browse-modal').style.display = 'none'; });
+document.getElementById('browse-choose').addEventListener('click', function(){
+  if(browseTarget && browsePath) document.getElementById('path-'+browseTarget).value = browsePath;
+  document.getElementById('browse-modal').style.display = 'none';
+});
+
+// ---- Setup: save paths ----
+document.getElementById('paths-save').addEventListener('click', function(){
+  var body = { token: token };
+  ['videos_dir','scripts_dir','vi_dir','repartition_csv'].forEach(function(k){
+    body[k] = document.getElementById('path-'+k).value.trim();
+  });
+  fetch('/admin/setup_paths' + qs(), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      document.getElementById('paths-msg').textContent = d.ok
+        ? 'Enregistré. Redémarrez le service pour appliquer.'
+        : ('Erreur: ' + (d.error || 'inconnue'));
+    }).catch(function(){ document.getElementById('paths-msg').textContent = 'Erreur réseau'; });
+});
+
+// ---- Setup: codes ----
+document.getElementById('save-admin-code').addEventListener('click', function(){
+  var code = document.getElementById('new-admin-code').value.trim();
+  fetch('/admin/change_admin_code' + qs(), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code: code, token: token})})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ document.getElementById('codes-msg').textContent = d.ok ? 'Code admin mis à jour.' : ('Erreur: ' + (d.error || 'inconnue')); document.getElementById('new-admin-code').value=''; })
+    .catch(function(){ document.getElementById('codes-msg').textContent = 'Erreur réseau'; });
+});
+document.getElementById('save-master-code').addEventListener('click', function(){
+  var code = document.getElementById('new-master-code').value.trim();
+  fetch('/admin/change_master_code' + qs(), {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({code: code, token: token})})
+    .then(function(r){ return r.json(); })
+    .then(function(d){ document.getElementById('codes-msg').textContent = d.ok ? 'Master code mis à jour.' : ('Erreur: ' + (d.error || 'inconnue')); document.getElementById('new-master-code').value=''; })
+    .catch(function(){ document.getElementById('codes-msg').textContent = 'Erreur réseau'; });
+});
+
+if(token) refreshService();
+</script>
+</body>
+</html>
