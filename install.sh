@@ -124,7 +124,8 @@ log "Scripts depuis : $SCRIPT_DIR"
 echo ""
 
 # Demander confirmation
-read -p "$(echo -e ${BLUE}Continuer l\'installation ? (y/n)${NC} )" -n 1 -r
+echo -e "${BLUE}Continuer l'installation ? (y/n)${NC}"
+read -n 1 -r REPLY
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     log_error "Installation annulée."
