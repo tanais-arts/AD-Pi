@@ -375,36 +375,34 @@ cat << EOF
 
 🚀 DÉMARRAGE RAPIDE :
 
-1. Aller dans le répertoire AD-Pi400 :
+OPTION 1️⃣  — Application bureau (RECOMMANDÉ) :
    cd $INSTALL_DIR
+   cp Ateliers-Doublage.desktop ~/.local/share/applications/
+   mkdir -p ~/.local/share/icons
+   cp Icone.png ~/.local/share/icons/
+   update-desktop-database ~/.local/share/applications/ 2>/dev/null || true
+   
+   → Double-cliquez sur "Ateliers Doublage Administration" dans le menu
+   → L'interface web s'ouvre automatiquement sur le port 1348
 
-2. Activer l'environnement :
-   source venv/bin/activate
-
-3. Ajouter vidéos et scripts :
-   cp /chemin/vers/*.mp4 VIDEOS/
-   cp /chemin/vers/*.xlsx SCRIPTS/
-
-4. OPTION A — Interface Web (comme sur macOS) :
+OPTION 2️⃣  — Interface web (port 8080) :
+   cd $INSTALL_DIR
    ./run_server.sh
-   → Accédez à http://<ip-du-pi>:8080 depuis votre ordinateur
+   → Accédez à http://localhost:8080
 
-5. OPTION B — Ligne de commande (CLI) :
+OPTION 3️⃣  — Ligne de commande (CLI) :
+   cd $INSTALL_DIR
+   source venv/bin/activate
+   python3 generate_sync.py VIDEOS/video.mp4 SCRIPTS/script.xlsx
    
-   a) Générer UNE vidéo SYNC :
-      python3 generate_sync.py VIDEOS/video.mp4 SCRIPTS/script.xlsx
-   
-   b) Générer TOUTES les vidéos :
-      python3 batch_sync.py
-   
-   c) Le résultat est dans :
-      $INSTALL_DIR/VIDEOS/SYNC/
+   Résultat : $INSTALL_DIR/VIDEOS/SYNC/
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 📖 Documentation :
    • $INSTALL_DIR/README.md
    • $INSTALL_DIR/RASPBERRY_PI_400.md
+   • $INSTALL_DIR/DESKTOP_APP.md (guide application bureau)
    • $INSTALL_DIR/RUN_SERVER.md (guide serveur web)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

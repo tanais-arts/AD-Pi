@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Ateliers Doublage Administration
+Comment=Gestion des vidéos synchronisées
+Icon=Icone
+Exec=bash -c 'cd "$(dirname "%k")" && ./launch_app.sh'
+Terminal=true
+Categories=AudioVideo;Utility;
+X-GNOME-Autostart-enabled=false
+StartupNotify=true
