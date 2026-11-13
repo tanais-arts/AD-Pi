@@ -1,0 +1,14 @@
+gunicorn
+Flask
+gunicorn
+numpy==1.26.4
+pandas
+Pillow
+moviepy
+imageio_ffmpeg
+openpyxl
+odfpy
+xlrd
+gevent
+packaging
+pyphen
