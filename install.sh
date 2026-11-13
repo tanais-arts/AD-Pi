@@ -412,4 +412,78 @@ EOF
 
 du -sh "$INSTALL_DIR" 2>/dev/null || echo "   (à calculer)"
 
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# CRÉATION AUTOMATIQUE DU RACCOURCI DESKTOP
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+log_info "Création du raccourci application bureau..."
+
+# Créer les répertoires nécessaires
+APPLICATIONS_DIR="$HOME/.local/share/applications"
+ICONS_DIR="$HOME/.local/share/icons"
+
+mkdir -p "$APPLICATIONS_DIR" 2>/dev/null || true
+mkdir -p "$ICONS_DIR" 2>/dev/null || true
+
+# Copier le fichier .desktop
+if [ -f "$INSTALL_DIR/Ateliers-Doublage.desktop" ]; then
+    cp "$INSTALL_DIR/Ateliers-Doublage.desktop" "$APPLICATIONS_DIR/" 2>/dev/null && \
+    log_success "✓ Raccourci copié dans le menu" || \
+    log_warning "⚠️  Impossible de copier le raccourci"
+else
+    log_warning "⚠️  Fichier Ateliers-Doublage.desktop non trouvé"
+fi
+
+# Copier l'icône
+if [ -f "$INSTALL_DIR/Icone.png" ]; then
+    cp "$INSTALL_DIR/Icone.png" "$ICONS_DIR/" 2>/dev/null && \
+    log_success "✓ Icône copiée" || \
+    log_warning "⚠️  Impossible de copier l'icône"
+else
+    log_warning "⚠️  Fichier Icone.png non trouvé"
+fi
+
+# Mettre à jour la base de données desktop
+if command -v update-desktop-database &> /dev/null; then
+    update-desktop-database "$APPLICATIONS_DIR" 2>/dev/null && \
+    log_success "✓ Base de données mise à jour" || \
+    log_warning "⚠️  Impossible de mettre à jour la base de données"
+fi
+
+# Créer optionnellement un lien sur le desktop (si disponible)
+DESKTOP_DIR="$HOME/Desktop"
+if [ -d "$DESKTOP_DIR" ]; then
+    if [ -f "$APPLICATIONS_DIR/Ateliers-Doublage.desktop" ]; then
+        # Créer un lien symbolique au lieu de copier
+        ln -sf "$APPLICATIONS_DIR/Ateliers-Doublage.desktop" "$DESKTOP_DIR/" 2>/dev/null || \
+        cp "$APPLICATIONS_DIR/Ateliers-Doublage.desktop" "$DESKTOP_DIR/" 2>/dev/null && \
+        log_success "✓ Raccourci aussi sur le bureau" || \
+        log_info "ℹ️  Raccourci dans le menu (Desktop non accessible)"
+    fi
+fi
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+echo ""
+section "✅ RACCOURCI CRÉÉ"
+
+cat << EOF
+
+🖱️  Cherchez "Ateliers Doublage Administration" dans le menu des applications
+    ou sur votre bureau, puis double-cliquez.
+
+📍 Localisation du raccourci :
+   • Menu/Applications : $APPLICATIONS_DIR/Ateliers-Doublage.desktop
+   • Bureau (optionnel) : $DESKTOP_DIR/Ateliers-Doublage.desktop
+
+⚡ Premier démarrage :
+   1. Double-cliquez sur le raccourci
+   2. Le serveur démarre automatiquement (port 1348)
+   3. Le navigateur s'ouvre à http://localhost:1348
+   4. Utilisez l'interface comme sur macOS
+
+🎬 Interface prête !
+
+EOF
+
 log_success "Installation complète ! Enjoy 🎬"
