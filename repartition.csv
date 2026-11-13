@@ -1,1 +1,6 @@
-Fichier vidéo,Nombre de personnages,F,H,catégorie,SPEED,Afficher
+Fichier video,Nombre de personnages,F,H,categorie,SPEED,Afficher
+exemple_video_1.mp4,5,3,2,dialogue,1.0,OUI
+exemple_video_2.mp4,8,4,4,action,1.25,OUI
+exemple_video_3.mp4,3,2,1,narration,0.9,NON
+exemple_video_4.mp4,12,6,6,scene_groupe,1.0,OUI
+exemple_video_5.mp4,2,1,1,duo,1.15,OUI
