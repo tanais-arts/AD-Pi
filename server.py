@@ -841,6 +841,7 @@ def run_job(job_id, video, script, output, px_per_frame=None):
             stdout=logf,
             stderr=logf,
             start_new_session=True,
+            env={**os.environ, 'PYTHONIOENCODING': 'utf-8'},
         )
         jobs[job_id]['pid'] = proc.pid
         jobs[job_id]['proc'] = proc
@@ -905,7 +906,7 @@ def run_job(job_id, video, script, output, px_per_frame=None):
 
         if rc != 0:
             jobs[job_id]['status'] = 'error'
-            jobs[job_id]['error'] = f'Process exited with code {rc} (see log)'
+            jobs[job_id]['error'] = f'La génération a échoué (code {rc}). Journal : {log_path}'
         else:
             jobs[job_id]['status'] = 'done'
             jobs[job_id]['progress'] = 100

@@ -11,10 +11,17 @@ Reports progress as JSON lines to stderr for web integration:
 
 import csv
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
+
+if sys.platform.startswith('linux') and 'IMAGEIO_FFMPEG_EXE' not in os.environ:
+    system_ffmpeg = shutil.which('ffmpeg')
+    if system_ffmpeg:
+        os.environ['IMAGEIO_FFMPEG_EXE'] = system_ffmpeg
 
 import numpy as np
 import pandas as pd
@@ -97,16 +104,27 @@ def find_font(size: int):
         "/System/Library/Fonts/Noteworthy.ttc",
         "/System/Library/Fonts/Supplemental/Comic Sans MS Bold.ttf",
         "/System/Library/Fonts/Supplemental/Comic Sans MS.ttf",
+        "/usr/share/fonts/truetype/msttcorefonts/Comic_Sans_MS_Bold.ttf",
+        "/usr/share/fonts/truetype/msttcorefonts/Comic_Sans_MS.ttf",
+        "C:/Windows/Fonts/comicbd.ttf",
+        "C:/Windows/Fonts/comic.ttf",
         "/Library/Fonts/Arial Bold.ttf",
         "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
         "/System/Library/Fonts/Helvetica.ttc",
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/noto/NotoSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+        "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+        "C:/Windows/Fonts/arialbd.ttf",
     ]
     for p in candidates:
         if Path(p).exists():
             try:
                 return ImageFont.truetype(p, size)
-            except Exception:
-                continue
+            except OSError as exc:
+                print(f'Warning: could not load font {p}: {exc}', file=sys.stderr)
+    print('Warning: no system font found; some characters may not render.',
+          file=sys.stderr)
     return ImageFont.load_default(size)
 
 
@@ -476,8 +494,7 @@ def generate(video_path: Path, script_path: Path, out_path: Path,
                 break
 
     # Build ffmpeg command. Inputs: rawvideo stdin, video file, [optional audio file].
-    # Uses the portable ffmpeg binary bundled by imageio_ffmpeg (same one
-    # moviepy uses internally) so no system/Homebrew ffmpeg install is needed.
+    # Use the same FFmpeg executable as MoviePy.
     cmd = [
         imageio_ffmpeg.get_ffmpeg_exe(), '-y', '-hide_banner', '-loglevel', 'warning',
         '-f', 'rawvideo', '-vcodec', 'rawvideo',

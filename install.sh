@@ -158,6 +158,7 @@ sudo apt-get update -qq >> "$LOG_FILE" 2>&1 || log_warning "apt update échoué 
 # Liste des dépendances
 DEPS=(
     "ffmpeg"
+    "fonts-dejavu-core"
     "python3-pip"
     "python3-venv"
     "python3-dev"
@@ -184,6 +185,25 @@ for dep in "${DEPS[@]}"; do
         sudo apt-get install -y -qq "$dep" >> "$LOG_FILE" 2>&1 || log_warning "$dep : échec (non-critique)"
     fi
 done
+
+if [ -t 0 ]; then
+    echo ""
+    log "Comic Sans MS est une police propriétaire, téléchargée séparément."
+    read -r -p "Installer les polices Microsoft (connexion Internet requise) ? [o/N] " INSTALL_MS_FONTS
+    if [[ "$INSTALL_MS_FONTS" =~ ^[OoYy]$ ]]; then
+        if sudo apt-get install -y ttf-mscorefonts-installer; then
+            if [ -f /usr/share/fonts/truetype/msttcorefonts/Comic_Sans_MS_Bold.ttf ]; then
+                log_success "Comic Sans MS installée"
+            else
+                log_warning "Comic Sans MS introuvable après installation ; DejaVu sera utilisée"
+            fi
+        else
+            log_warning "Installation des polices Microsoft échouée ; DejaVu sera utilisée"
+        fi
+    fi
+else
+    log "Installation optionnelle de Comic Sans MS ignorée (mode non interactif)."
+fi
 
 log_success "Dépendances système OK"
 

@@ -133,6 +133,21 @@ pip install -r requirements.txt
 ```bash
 sudo apt install ffmpeg
 ```
+Sous Linux, la génération utilise le FFmpeg système lorsqu'il est disponible,
+afin d'éviter certaines incompatibilités entre MoviePy et le FFmpeg fourni par
+imageio. La variable `IMAGEIO_FFMPEG_EXE` permet de choisir explicitement un
+autre exécutable.
+
+### Accents incorrects dans la rythmo
+Sur Linux, la génération utilise une police système compatible avec les accents,
+comme DejaVu Sans. L'installation propose aussi Comic Sans MS en option : son
+paquet Debian télécharge des polices Microsoft propriétaires séparément. Si
+Comic Sans MS est installée, elle est préférée à DejaVu sur Linux.
+Si aucune police compatible n'est installée :
+```bash
+sudo apt install fonts-dejavu-core
+```
+Régénérez la vidéo après installation.
 
 ### Lenteur / "Out of memory"
 - Réduire `OUTPUT_W, OUTPUT_H` dans `generate_sync.py`

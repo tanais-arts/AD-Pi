@@ -1408,7 +1408,6 @@ function trackProgress(jobId){
   currentJobSource = es;
   es.onmessage=function(evt){
     var info=JSON.parse(evt.data);
-    if(info.error){ es.close(); if(eptxt) eptxt.textContent = info.error; return; }
     var pct=info.progress||0;
     // update both local editor bar and shared/global bar if present
     if(epbar){ epbar.style.width = pct+'%'; }
@@ -1449,8 +1448,11 @@ function trackProgress(jobId){
       currentJobId = null; currentJobSource = null;
       if(eptxt) eptxt.textContent = info.error||'Erreur inconnue';
       try{ var sharedTxt = document.getElementById('progress-text'); if(sharedTxt) sharedTxt.textContent = info.error||'Erreur inconnue'; }catch(e){}
-      try{ var b = document.getElementById('btn-generate-2'); if(b){ try{ b.removeEventListener('click', stopGeneration); }catch(e){} b.removeEventListener('click', doGenerate); b.addEventListener('click', doGenerate); b.disabled=false; b.textContent='Générer la vidéo'; } }catch(e){}
+      editorError.textContent = info.error||'Erreur inconnue';
+      editorError.classList.add('active');
+      try{ [document.getElementById('btn-generate-2'), document.getElementById('btn-generate')].forEach(function(b){ if(b){ b.removeEventListener('click', stopGeneration); b.removeEventListener('click', doGenerate); b.addEventListener('click', doGenerate); b.disabled=false; b.textContent='Générer la vidéo'; } }); }catch(e){}
       try{ restoreSharedProgressToView(); }catch(e){}
+      try{ restoreDetourBar(); }catch(e){}
     }
   };
   es.onerror=function(){ try{ es.close(); }catch(e){} currentJobSource=null; if(eptxt) eptxt.textContent='Connexion perdue'; };
